@@ -1,0 +1,30 @@
+{
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportArgumentType": "error",
+  "reportMissingImports": true,
+  "reportUnknownVariableType": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnboundVariable": "none",
+  "reportGeneralTypeIssues": "error",
+  "reportUntypedFunctionDecorator": "none",
+  "reportUntypedBaseClass": "warning",
+  "reportMissingParameterType": "none",
+  "reportUnknownParameterType": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportCallIssue": "none",
+  "include": [
+    "core",
+    "manage.py"
+  ],
+  "exclude": [
+    "**/migrations/**",
+    "**/__pycache__/**",
+    "venv",
+    ".venv"
+  ],
+  "extraPaths": [
+    ".",
+    "core"
+  ]
+}
