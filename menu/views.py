@@ -1,4 +1,5 @@
 from django.db.models import Prefetch
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,6 +10,8 @@ class MenuViewSet(APIView):
     """
     Retorna todos os itens do cardápio sem paginação para prefetch no frontend.
     """
+
+    permission_classes = [AllowAny]
 
     def get(self, request):
         options_qs = SideDishOption.objects.select_related(
@@ -28,6 +31,7 @@ class MenuViewSet(APIView):
                     "uuid": dish.uuid,
                     "name": dish.name,
                     "description": dish.description,
+                    "is_available": dish.is_available,
                     "price": dish.price,
                     "side_dish_options": [
                         {
