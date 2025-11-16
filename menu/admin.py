@@ -16,7 +16,7 @@ class CategoryAdmin(BaseMenuAdmin):
 
 @admin.register(SideDish)
 class SideDishAdmin(BaseMenuAdmin):
-    list_display = ("name", "price", "is_available", "created_at")
+    list_display = ("name", "is_available", "created_at")
     list_filter = ("is_available",)
     search_fields = ("name",)
     ordering = ("name",)

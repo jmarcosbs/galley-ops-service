@@ -25,7 +25,7 @@ class Category(MenuBaseModel):
         return self.name
 
 
-class SideDish(MenuBaseModel, CommonPriceModel, CommonAvailableModel):
+class SideDish(MenuBaseModel, CommonAvailableModel):
     name = models.CharField("nome", max_length=255)
 
     class Meta:
@@ -42,9 +42,7 @@ class SideDishOption(MenuBaseModel):
     )
     default_side_dish = models.ForeignKey(
         SideDish,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
+        on_delete=models.CASCADE,
         verbose_name="acompanhamento padrão",
         related_name="default_for_side_dish_options",
     )
@@ -65,7 +63,11 @@ class SideDishOption(MenuBaseModel):
             return "Nova opção de acompanhamento"
 
         dishes = list(self.side_dishes.order_by("name").values_list("name", flat=True))
-        return ", ".join(dishes) if dishes else f"Opção {self.uuid}"
+        return (
+            ", ".join(dishes) + f" - Padrão: ({self.default_side_dish.name})"
+            if dishes
+            else f"Opção {self.uuid}"
+        )
 
 
 class DepartmentChoices(models.TextChoices):
