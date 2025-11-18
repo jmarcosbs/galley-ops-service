@@ -17,3 +17,15 @@ class SerializedOrderDataType(TypedDict):
     ticket: int
     dishes: list[SerializedDishOrderDataType]
     general_note: str | None
+
+
+class SerializedSettlementItemDataType(TypedDict):
+    dish_order_uuid: UUID
+    dish_order_quantity: float
+
+
+class SerializedSettlementDataType(TypedDict):
+    ticket_number: int
+    additions: float | None
+    discounts: float | None
+    items: list[SerializedSettlementItemDataType]
