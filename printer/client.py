@@ -1,11 +1,12 @@
+import os
 import requests
 from printer.types import PrinterOrderInputType
 
 
 class PrinterClient:
     def __init__(self):
-        self.base_url = "http://localhost:3000/api/printer/"
-        self.token = "1234567890"
+        self.base_url = os.environ.get("PRINTER_SERVER_URL")
+        self.token = os.environ.get("PRINTER_TOKEN")
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
     def send_order_to_printer(

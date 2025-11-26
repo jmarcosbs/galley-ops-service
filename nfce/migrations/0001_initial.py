@@ -22,11 +22,53 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("code", models.CharField(max_length=20, unique=True)),
-                ("description", models.TextField()),
+                ("code", models.CharField("código", max_length=20, unique=True)),
+                ("description", models.TextField("descrição")),
+                (
+                    "national_tax",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=10,
+                        verbose_name="imposto nacional",
+                    ),
+                ),
+                (
+                    "import_tax",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=10,
+                        verbose_name="imposto importação",
+                    ),
+                ),
+                (
+                    "state_tax",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=10,
+                        verbose_name="imposto estadual",
+                    ),
+                ),
+                (
+                    "municipal_tax",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=10,
+                        verbose_name="imposto municipal",
+                    ),
+                ),
+                (
+                    "vigency_start",
+                    models.DateField(verbose_name="data de início de vigência"),
+                ),
+                (
+                    "vigency_end",
+                    models.DateField(verbose_name="data de fim de vigência"),
+                ),
             ],
             options={
                 "ordering": ["code"],
+                "verbose_name": "NCM",
+                "verbose_name_plural": "NCMs",
             },
         ),
     ]

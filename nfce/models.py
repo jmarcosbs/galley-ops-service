@@ -11,6 +11,20 @@ def normalize_code(value: str) -> str:
 class NCM(models.Model):
     code = models.CharField("código", max_length=20, unique=True)
     description = models.TextField("descrição")
+    national_tax = models.DecimalField(
+        "imposto nacional", max_digits=10, decimal_places=2
+    )
+    import_tax = models.DecimalField(
+        "imposto importação", max_digits=10, decimal_places=2
+    )
+    state_tax = models.DecimalField(
+        "imposto estadual", max_digits=10, decimal_places=2
+    )
+    municipal_tax = models.DecimalField(
+        "imposto municipal", max_digits=10, decimal_places=2
+    )
+    vigency_start = models.DateField("data de início de vigência")
+    vigency_end = models.DateField("data de fim de vigência")
 
     class Meta:
         verbose_name = "NCM"

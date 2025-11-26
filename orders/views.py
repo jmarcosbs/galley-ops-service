@@ -194,6 +194,7 @@ class TicketSettlementView(APIView):
                     quantity=item["dish_order_quantity"],
                 )
 
-            # TODO: Cria modelo, enviar e atribuir NFe para o settlement
+            helper = OrderHelper()
+            helper.send_nfce(settlement)
 
         return Response(status=status.HTTP_201_CREATED)

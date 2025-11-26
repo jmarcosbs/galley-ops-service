@@ -1,13 +1,15 @@
 import requests
 from typing import Literal
+import os
 
 
 class TelegramClient:
 
     def __init__(self):
-        self.token = "***REMOVED***"
-        self.kitchen_chat_id = "-1002290593897"
-        self.general_chat_id = "-1002411830546"
+        # strip() evita falhas caso o .env tenha espaços ao redor do '='
+        self.token = os.environ.get("TELEGRAM_TOKEN")
+        self.kitchen_chat_id = os.environ.get("KITCHEN_CHAT_ID")
+        self.general_chat_id = os.environ.get("GENERAL_CHAT_ID")
 
     def send_message(
         self, send_to_chat: Literal["kitchen", "general"], message: str

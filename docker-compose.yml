@@ -5,6 +5,8 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     ports:
       - "${PORT:-8002}:8000"
+    env_file:
+      - .env
     environment:
       DJANGO_SETTINGS_MODULE: "${DJANGO_SETTINGS_MODULE:-core.settings}"
       PYTHONUNBUFFERED: "1"
