@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
-
+from decimal import Decimal
 from common.models import CommonTimedModel, CommonUUIDModel
 from menu.models import Dish, SideDish, SideDishOption
 
@@ -108,6 +108,13 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
     additions_value = models.DecimalField(max_digits=10, decimal_places=2)
     discounts_value = models.DecimalField(max_digits=10, decimal_places=2)
     final_value = models.DecimalField(max_digits=10, decimal_places=2)
+    nfce_xml = models.TextField(blank=True, null=True)
+    nfce_qrcode_url = models.URLField(blank=True, null=True)
+    nfce_issued_at = models.DateTimeField(blank=True, null=True)
+
+    @property
+    def total_taxes(self):
+        return sum(item.total_taxes for item in self.items.all())
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -125,12 +132,26 @@ class TicketSettlementItem(CommonUUIDModel, CommonTimedModel):
     dish_order_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.FloatField()  # quanto deste item foi liquidado
 
+    @property
+    def total_taxes(self):
+        national_percentage_tax = self.dish_order.dish.ncm.national_tax
+        state_percentage_tax = self.dish_order.dish.ncm.state_tax
+        municipal_percentage_tax = self.dish_order.dish.ncm.municipal_tax
+        total_percentage = (
+            national_percentage_tax + state_percentage_tax + municipal_percentage_tax
+        ) / Decimal("100")
+        taxable_value = Decimal(str(self.dish_order_price)) * Decimal(
+            str(self.quantity)
+        )
+        total_taxes = taxable_value * total_percentage
+        return Decimal(total_taxes)
+
     def save(self, *args, **kwargs):
         # Calcula delta para não descontar duas vezes em atualizações
         previous_quantity = (
             TicketSettlementItem.objects.get(pk=self.pk).quantity if self.pk else 0
         )
-        delta = float(self.quantity) - float(previous_quantity)
+        delta = float(str(self.quantity)) - float(str(previous_quantity))
         available = self.dish_order.quantity + previous_quantity
         if self.quantity > available:
             raise ValidationError(

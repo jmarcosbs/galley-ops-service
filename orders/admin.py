@@ -85,6 +85,7 @@ class TicketSettlementAdmin(BaseOrderAdmin):
         "full_value",
         "additions_value",
         "discounts_value",
+        "total_taxes",
         "settled_by",
         "created_at",
     )
@@ -92,11 +93,19 @@ class TicketSettlementAdmin(BaseOrderAdmin):
     search_fields = ("ticket__number", "uuid")
     autocomplete_fields = ("ticket", "settled_by")
     inlines = (TicketSettlementItemInline,)
+    readonly_fields = BaseOrderAdmin.readonly_fields + ("total_taxes",)
 
 
 @admin.register(TicketSettlementItem)
 class TicketSettlementItemAdmin(BaseOrderAdmin):
-    list_display = ("settlement", "dish_order", "quantity", "dish_order_price")
+    list_display = (
+        "settlement",
+        "dish_order",
+        "quantity",
+        "dish_order_price",
+        "total_taxes",
+    )
     search_fields = ("uuid", "settlement__ticket__number", "dish_order__uuid")
     list_select_related = ("settlement", "dish_order")
     autocomplete_fields = ("settlement", "dish_order")
+    readonly_fields = BaseOrderAdmin.readonly_fields + ("total_taxes",)

@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('menu', '0003_alter_sidedish_options_remove_sidedishoption_price_and_more'),
-        ('nfce', '0004_alter_ncm_options_alter_ncm_code_and_more'),
+        ('nfce', '0002_load_ncm_data'),
     ]
 
     operations = [
