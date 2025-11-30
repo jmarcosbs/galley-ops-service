@@ -1,6 +1,7 @@
 from datetime import datetime
 from telegram.client import TelegramClient
 from orders.models import Order
+from menu.models import DepartmentChoices
 
 
 class TelegramService:
@@ -10,11 +11,11 @@ class TelegramService:
     def make_dishes_text_list(self, order_dishes: list[dict]) -> str:
         dishes_text = ""
         for order_dish in order_dishes:
-            dish = order_dish["dish"]
-            amount = order_dish["amount"]
-            dish_note = order_dish["dish_note"]
+            dish = order_dish.dish
+            amount = order_dish.quantity
+            dish_note = order_dish.note
             dishes_text += f"""
-            <b>{amount}x {dish['dish_name']}</b>
+            <b>{amount}x {dish.name}</b>
             {'<b>Observação: </b>' + dish_note if dish_note else ''}
             """
         return dishes_text
@@ -57,12 +58,12 @@ class TelegramService:
 
         ticket_number = order.ticket.number
         general_note = order.note
-        waiter = order.waiter.name
+        waiter = order.waiter.username
 
         should_send_to_kitchen = False
 
         for dish in order.dish_orders.all():
-            if dish.department == "cozinha":
+            if dish.dish.department == DepartmentChoices.KITCHEN:
                 should_send_to_kitchen = True
                 break
 

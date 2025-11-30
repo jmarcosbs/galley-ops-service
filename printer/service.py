@@ -1,5 +1,9 @@
 from printer.client import PrinterClient
-from printer.types import DishData, PrinterOrderInputType
+from printer.types import (
+    PrinterOrderInputType,
+    PrinterOrderDishData,
+    PrinterDishData,
+)
 from orders.models import Order
 
 
@@ -9,32 +13,47 @@ class PrintService:
 
     def print_order(self, order: Order) -> tuple[bool, int, str]:
 
-        input_data_for_printer = PrinterOrderInputType(
-            id=order.id,
-            created_at=order.created_at.isoformat(),
-            waiter_name=order.waiter.name,
-            ticket_number=order.ticket.number,
-            general_note=str(order.note),
-            dishes=list[DishData](
-                [
+        def _build_order_input(department: str) -> PrinterOrderInputType | None:
+            items: list[PrinterOrderDishData] = []
+            for dish_order in order.dish_orders.select_related("dish").filter(
+                dish__department=department
+            ):
+                items.append(
                     {
-                        "uuid": dish.uuid,
-                        "name": dish.name,
-                        "department": dish.department,
-                        "amount": dish.amount,
-                        "dish_note": dish.dish_note,
-                        "side_dishes": [
-                            {
-                                "uuid": side_dish.uuid,
-                                "name": side_dish.name,
-                            }
-                            for side_dish in dish.side_dishes.all()
-                        ],
+                        "dish": PrinterDishData(
+                            dish_name=dish_order.dish.name,
+                            department=dish_order.dish.department,
+                        ),
+                        "amount": dish_order.quantity,
+                        "dish_note": dish_order.note,
                     }
-                    for dish in order.dishes.all()
-                ]
-            ),
-        )
+                )
 
-        response = self.client.send_order_to_printer(input_data_for_printer)
-        return response.status_code == 200, response.status_code, response.text
+            if not items:
+                return None
+
+            return PrinterOrderInputType(
+                id=order.id,
+                date_time=order.created_at.isoformat(),
+                table_number=order.ticket.number,
+                order_dishes=list(items),
+                order_note=order.note,
+                waiter=order.waiter.username,
+                is_outside=False,
+            )
+
+        input_for_kitchen = _build_order_input("kitchen")
+        input_for_bar = _build_order_input("bar")
+
+        response_kitchen = (
+            self.client.print_kitchen(input_for_kitchen) if input_for_kitchen else None
+        )
+        response_bar = self.client.print_bar(input_for_bar) if input_for_bar else None
+
+        responses = [resp for resp in (response_kitchen, response_bar) if resp]
+        success = all(resp.status_code == 200 for resp in responses) if responses else True
+        primary_response = response_kitchen or response_bar
+        status_code = primary_response.status_code if primary_response else 200
+        response_text = primary_response.text if primary_response else ""
+
+        return (success, status_code, response_text)

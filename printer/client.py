@@ -18,9 +18,12 @@ class PrinterClient:
         return requests.get(url, headers=self.headers, timeout=5)
 
     def print_bar(self, order_payload: PrinterOrderInputType) -> requests.Response:
+        # Printa payload
+        print(order_payload)
         return self._post("/print-bar", order_payload)
 
     def print_kitchen(self, order_payload: PrinterOrderInputType) -> requests.Response:
+        print(order_payload)
         return self._post("/print-kitchen", order_payload)
 
     def print_bill(self, bill_payload: PrinterBillInputType) -> requests.Response:
