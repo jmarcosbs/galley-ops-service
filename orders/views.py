@@ -49,7 +49,9 @@ class OrderView(APIView):
 
         serializer = OrderSerializer(data=request.data)
         if not serializer.is_valid():
-            logger.warning("Order payload inválido: %s | data=%s", serializer.errors, request.data)
+            logger.warning(
+                "Order payload inválido: %s | data=%s", serializer.errors, request.data
+            )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         serialized_order_data: SerializedOrderDataType = cast(
@@ -101,22 +103,31 @@ class OrderView(APIView):
                         DishOrderSideDish.objects.create(
                             dish_order=dish_order, option=option, side_dish=side_dish
                         )
-        except ValidationError as exc:
-            return Response({"detail": exc.detail if hasattr(exc, "detail") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Dish.DoesNotExist:
-            return Response({"detail": "Prato não encontrado."}, status=status.HTTP_400_BAD_REQUEST)
-        except SideDish.DoesNotExist:
-            return Response({"detail": "Acompanhamento não encontrado."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Envia pedido para impressão
-        #     print_service = PrintService()
-        #     printed, _, response_text = print_service.print_order(order)
-        #     if not printed:
-        #         raise Exception(f"Erro ao imprimir pedido: {response_text}")
+            print_service = PrintService()
+            printed, _, response_text = print_service.print_order(order)
+            if not printed:
+                raise Exception(f"Erro ao imprimir pedido: {response_text}")
 
-        # # Envia notificação para o telegram
-        # telegram_service = TelegramService()
-        # telegram_service.send_order_notification(order)
+        except ValidationError as exc:
+            return Response(
+                {"detail": exc.detail if hasattr(exc, "detail") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Dish.DoesNotExist:
+            return Response(
+                {"detail": "Prato não encontrado."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        except SideDish.DoesNotExist:
+            return Response(
+                {"detail": "Acompanhamento não encontrado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Envia notificação para o telegram
+        telegram_service = TelegramService()
+        telegram_service.send_order_notification(order)
 
         broadcast_open_tables()
 

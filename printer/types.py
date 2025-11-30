@@ -4,7 +4,7 @@ from typing import Literal, NotRequired, TypedDict
 
 class PrinterDishData(TypedDict):
     dish_name: str
-    department: Literal["copa", "cozinha"]
+    department: Literal["bar", "kitchen"]
 
 
 class PrinterOrderDishData(TypedDict):
@@ -45,3 +45,8 @@ class PrinterBillInputType(PrinterOrderInputType):
     protocol_datetime: NotRequired[str]
     total_taxes: NotRequired[str]
     md5: NotRequired[str]
+
+
+class PrinterResponseType(TypedDict):
+    status_code: int
+    response: str
