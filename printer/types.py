@@ -1,27 +1,47 @@
-# Tipos de input para impressão de pedidos
-from datetime import datetime
-from typing import Literal, TypedDict
-from uuid import UUID
+# Tipos de payload aceitos pela API do driver de impressão
+from typing import Literal, NotRequired, TypedDict
 
 
-class SideDishData(TypedDict):
-    uuid: UUID
-    name: str
+class PrinterDishData(TypedDict):
+    dish_name: str
+    department: Literal["copa", "cozinha"]
 
 
-class DishData(TypedDict):
-    uuid: UUID
-    name: str
-    department: Literal["kitchen", "bar"]
+class PrinterOrderDishData(TypedDict):
+    dish: PrinterDishData
     amount: float
     dish_note: str | None
-    side_dishes: list[SideDishData]
 
 
 class PrinterOrderInputType(TypedDict):
     id: int
-    created_at: datetime
-    waiter_name: str
-    ticket_number: int
-    general_note: str | None
-    dishes: list[DishData]
+    date_time: str
+    table_number: int
+    order_dishes: list[PrinterOrderDishData]
+    order_note: str
+    waiter: str
+    is_outside: bool
+
+
+class PrinterBillDishData(PrinterOrderDishData):
+    unit_price: float
+
+
+class PrinterBillInputType(PrinterOrderInputType):
+    order_dishes: list[PrinterBillDishData]
+    total: float
+    amount_to_pay: float
+    service: NotRequired[float]
+    company_name: NotRequired[str]
+    company_address: NotRequired[str]
+    company_cnpj: NotRequired[str]
+    company_ie: NotRequired[str]
+    access_key: NotRequired[str]
+    qr_number: NotRequired[str]
+    qr_url: NotRequired[str]
+    nfce_number: NotRequired[str]
+    nfce_series: NotRequired[str]
+    protocol: NotRequired[str]
+    protocol_datetime: NotRequired[str]
+    total_taxes: NotRequired[str]
+    md5: NotRequired[str]

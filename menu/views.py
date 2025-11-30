@@ -33,6 +33,7 @@ class MenuViewSet(APIView):
                     "description": dish.description,
                     "is_available": dish.is_available,
                     "price": dish.price,
+                    "department": dish.department,
                     "side_dish_options": [
                         {
                             "uuid": option.uuid,
