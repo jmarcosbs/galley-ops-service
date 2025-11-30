@@ -10,7 +10,7 @@ class SideDishSerializer(serializers.Serializer):
 class DishOrderSerializer(serializers.Serializer):
     dish_uuid = serializers.UUIDField()
     amount = serializers.FloatField()
-    dish_note = serializers.CharField(required=False)
+    dish_note = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     side_dishes = serializers.ListField(
         child=SideDishSerializer(), required=False, allow_empty=True
     )
