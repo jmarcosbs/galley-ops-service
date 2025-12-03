@@ -47,6 +47,14 @@ class PrinterBillInputType(PrinterOrderInputType):
     md5: NotRequired[str]
 
 
-class PrinterResponseType(TypedDict):
-    status_code: int
-    response: str
+class PrinterSuccessResponseType(TypedDict):
+    message: str
+
+class PrinterErrorResponseType(TypedDict):
+    detail: str
+    
+class PrinterSuccessHealthResponseType(TypedDict):
+    status: str
+
+class PrinterErrorResponseHealthType(TypedDict):
+    detail: str
