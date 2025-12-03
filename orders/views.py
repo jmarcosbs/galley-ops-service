@@ -126,8 +126,8 @@ class OrderView(APIView):
             )
 
         # Envia notificação para o telegram
-        telegram_service = TelegramService()
-        telegram_service.send_order_notification(order)
+        # telegram_service = TelegramService()
+        # telegram_service.send_order_notification(order)
 
         broadcast_open_tables()
 

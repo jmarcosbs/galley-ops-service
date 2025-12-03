@@ -1,3 +1,7 @@
+from datetime import timezone as dt_timezone
+
+from django.utils import timezone
+
 from printer.client import PrinterClient
 from printer.types import (
     PrinterOrderInputType,
@@ -12,6 +16,15 @@ class PrintService:
         self.client = PrinterClient()
 
     def print_order(self, order: Order) -> tuple[bool, int, str]:
+
+        def _format_datetime(dt) -> str:
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.get_default_timezone())
+            dt = dt.astimezone(dt_timezone.utc)
+            iso = dt.isoformat(timespec="milliseconds")
+            if iso.endswith("+00:00"):
+                iso = iso[:-6] + "Z"
+            return iso
 
         def _build_order_input(department: str) -> PrinterOrderInputType | None:
             items: list[PrinterOrderDishData] = []
@@ -34,7 +47,7 @@ class PrintService:
 
             return PrinterOrderInputType(
                 id=order.id,
-                date_time=order.created_at.isoformat(),
+                date_time=_format_datetime(order.created_at),
                 table_number=order.ticket.number,
                 order_dishes=list(items),
                 order_note=order.note,
@@ -45,13 +58,17 @@ class PrintService:
         input_for_kitchen = _build_order_input("kitchen")
         input_for_bar = _build_order_input("bar")
 
+        print(input_for_kitchen)
+
         response_kitchen = (
             self.client.print_kitchen(input_for_kitchen) if input_for_kitchen else None
         )
         response_bar = self.client.print_bar(input_for_bar) if input_for_bar else None
 
         responses = [resp for resp in (response_kitchen, response_bar) if resp]
-        success = all(resp.status_code == 200 for resp in responses) if responses else True
+        success = (
+            all(resp.status_code == 200 for resp in responses) if responses else True
+        )
         primary_response = response_kitchen or response_bar
         status_code = primary_response.status_code if primary_response else 200
         response_text = primary_response.text if primary_response else ""
