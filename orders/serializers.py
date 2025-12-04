@@ -1,19 +1,44 @@
 from rest_framework import serializers
-
+from nfce.models import NCM
 from orders.models import DishOrder, Ticket, TicketStatus
 
 
 class SideDishSerializer(serializers.Serializer):
     side_dish_uuid = serializers.UUIDField()
 
+class CustomDishSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    ncm = serializers.IntegerField()
+    department = serializers.CharField()
+    
+    def validate_ncm(self, value):
+        ncm = NCM.objects.get(code=value)
+        if ncm is None:
+            raise serializers.ValidationError("NCM não encontrado.")
+        return value
 
 class DishOrderSerializer(serializers.Serializer):
-    dish_uuid = serializers.UUIDField()
+    # Recebe um prato
+    dish_uuid = serializers.UUIDField(required=False, allow_null=True)
+    
+    # Ou um item customizado
+    custom_dish = CustomDishSerializer(required=False, allow_null=True)
+    
     amount = serializers.FloatField()
     dish_note = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     side_dishes = serializers.ListField(
         child=SideDishSerializer(), required=False, allow_empty=True
     )
+    
+    def validate(self, attrs):
+        dish_uuid = attrs.get("dish_uuid")
+        custom = attrs.get("custom_dish")
+        if bool(dish_uuid) == bool(custom):
+            raise serializers.ValidationError("Envie dish_uuid OU custom_dish, não ambos nem nenhum.")
+        if custom and attrs.get("side_dishes"):
+            raise serializers.ValidationError("Itens customizados não aceitam acompanhamentos.")
+        return attrs
 
     # TODO: Validar se acompanhamentos estão disponíveis para o prato
 

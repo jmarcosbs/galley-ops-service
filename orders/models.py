@@ -4,7 +4,7 @@ from django.db import models
 from django.db.models import Q
 from decimal import Decimal
 from common.models import CommonTimedModel, CommonUUIDModel
-from menu.models import Dish, SideDish, SideDishOption
+from menu.models import Dish, SideDish, SideDishOption, CustomDish
 
 
 class Order(CommonTimedModel, CommonUUIDModel):
@@ -33,9 +33,33 @@ class DishOrder(CommonTimedModel, CommonUUIDModel):
         Dish,
         on_delete=models.CASCADE,
         related_name="dish_orders",
+        null=True,
+        blank=True,
+    )
+    custom_dish = models.ForeignKey(
+        CustomDish,
+        on_delete=models.CASCADE,
+        related_name="dish_orders",
+        null=True,
+        blank=True,
     )
     quantity = models.FloatField()
     note = models.TextField(blank=True, null=True)
+    
+    @property
+    def dish_or_custom_dish(self) -> Dish | CustomDish:
+        return self.dish or self.custom_dish
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(dish__isnull=False, custom_dish__isnull=True)
+                    | models.Q(dish__isnull=True, custom_dish__isnull=False)
+                ),
+                name="dishorder_requires_one_item",
+            )
+        ]
 
 
 class DishOrderSideDish(CommonUUIDModel, CommonTimedModel):

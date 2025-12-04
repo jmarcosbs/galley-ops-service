@@ -24,7 +24,7 @@ class DishOrderInline(admin.TabularInline):
     model = DishOrder
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("dish",)
+    autocomplete_fields = ("dish", "custom_dish")
 
 
 class TicketSettlementItemInline(admin.TabularInline):
@@ -57,11 +57,20 @@ class OrderAdmin(BaseOrderAdmin):
 
 @admin.register(DishOrder)
 class DishOrderAdmin(BaseOrderAdmin):
-    list_display = ("dish", "order", "quantity", "created_at")
-    search_fields = ("uuid", "dish__name", "order__ticket__number")
-    list_select_related = ("order", "dish")
-    autocomplete_fields = ("order", "dish")
+    list_display = ("display_item", "order", "quantity", "created_at")
+    search_fields = (
+        "uuid",
+        "dish__name",
+        "custom_dish__name",
+        "order__ticket__number",
+    )
+    list_select_related = ("order", "dish", "custom_dish")
+    autocomplete_fields = ("order", "dish", "custom_dish")
     inlines = (DishOrderSideDishInline,)
+
+    @admin.display(description="Item")
+    def display_item(self, obj):
+        return obj.dish or obj.custom_dish
 
 
 @admin.register(Ticket)
