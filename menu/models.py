@@ -99,3 +99,17 @@ class Dish(MenuBaseModel, CommonPriceModel, CommonAvailableModel):
 
     def __str__(self):
         return self.name
+
+class CustomDish(MenuBaseModel, CommonPriceModel):
+    name = models.CharField("nome", max_length=255)
+    ncm = models.ForeignKey("nfce.NCM", verbose_name="NCM", on_delete=models.CASCADE)
+    department = models.CharField(
+        "departamento", max_length=255, choices=DepartmentChoices.choices
+    )
+
+    class Meta:
+        verbose_name = "Item Customizado"
+        verbose_name_plural = "Itens Customizados"
+
+    def __str__(self):
+        return self.name

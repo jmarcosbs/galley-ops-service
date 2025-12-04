@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Dish, SideDish, SideDishOption
+from .models import Category, Dish, SideDish, SideDishOption, CustomDish
 
 
 class BaseMenuAdmin(admin.ModelAdmin):
@@ -61,3 +61,11 @@ class DishAdmin(BaseMenuAdmin):
     autocomplete_fields = ("ncm",)
     filter_horizontal = ("side_dish_options",)
     ordering = ("name",)
+
+
+@admin.register(CustomDish)
+class CustomDishAdmin(BaseMenuAdmin):
+    list_display = ("name", "department", "price", "created_at", "updated_at")
+    list_filter = ("department",)
+    search_fields = ("name", "ncm__code")
+    autocomplete_fields = ("ncm",)

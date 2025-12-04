@@ -2,8 +2,9 @@ from contextlib import AbstractContextManager
 from decimal import Decimal
 from typing import cast
 
-from django.contrib.auth.models import User
+
 from django.db import transaction
+from nfce.models import NCM
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
@@ -11,7 +12,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from menu.models import Dish, SideDish
+from menu.models import Dish, SideDish, CustomDish
 from orders.helpers import OrderHelper
 from orders.selectors import serialize_open_tables
 from orders.serializers import (
@@ -46,6 +47,9 @@ class OrderView(APIView):
 
     def post(self, request: Request):
         user = request.user
+        
+        # printa o payload recebido
+        print(request.data)
 
         serializer = OrderSerializer(data=request.data)
         if not serializer.is_valid():
@@ -81,27 +85,48 @@ class OrderView(APIView):
                 )
 
                 for dish_data in serialized_order_data["dishes"]:
-                    dish = Dish.objects.get(uuid=dish_data["dish_uuid"])
-                    dish_order = DishOrder.objects.create(
-                        order=order,
-                        dish=dish,
-                        quantity=dish_data["amount"],
-                        note=dish_data.get("dish_note"),
-                    )
-
-                    for side_dish_data in dish_data.get("side_dishes", []):
-                        side_dish = SideDish.objects.get(
-                            uuid=side_dish_data["side_dish_uuid"]
+                    # Se contém o uuid, é um prato do cardápio
+                    if dish_data["dish_uuid"]:
+                        dish = Dish.objects.get(uuid=dish_data["dish_uuid"])
+                        dish_order = DishOrder.objects.create(
+                            order=order,
+                            dish=dish,
+                            quantity=dish_data["amount"],
+                            note=dish_data.get("dish_note"),
                         )
-                        option = dish.side_dish_options.filter(
-                            side_dishes=side_dish
-                        ).first()
-                        if not option:
-                            raise ValidationError(
-                                f"Acompanhamento {side_dish} não disponível para {dish}."
+
+                        for side_dish_data in dish_data.get("side_dishes", []):
+                            side_dish = SideDish.objects.get(
+                                uuid=side_dish_data["side_dish_uuid"]
                             )
-                        DishOrderSideDish.objects.create(
-                            dish_order=dish_order, option=option, side_dish=side_dish
+                            option = dish.side_dish_options.filter(
+                                side_dishes=side_dish
+                            ).first()
+                            if not option:
+                                raise ValidationError(
+                                    f"Acompanhamento {side_dish} não disponível para {dish}."
+                                )
+                            DishOrderSideDish.objects.create(
+                                dish_order=dish_order, option=option, side_dish=side_dish
+                            )
+                    else:
+                        # Se não contém o uuid, é um item customizado
+                        
+                        # Obtém o NCM pelo código
+                        ncm = NCM.objects.get(code=dish_data["custom_dish"]["ncm"])
+                        
+                        custom_dish = CustomDish.objects.create(
+                            name=dish_data["custom_dish"]["name"],
+                            price=dish_data["custom_dish"]["price"],
+                            ncm=ncm,
+                            department=dish_data["custom_dish"]["department"],
+                        )
+                        
+                        dish_order = DishOrder.objects.create(
+                            order=order,
+                            custom_dish=custom_dish,
+                            quantity=dish_data["amount"],
+                            note=dish_data.get("dish_note"),
                         )
 
             # Envia pedido para impressão

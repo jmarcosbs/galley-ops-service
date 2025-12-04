@@ -28,14 +28,15 @@ class PrintService:
 
         def _build_order_input(department: str) -> PrinterOrderInputType | None:
             items: list[PrinterOrderDishData] = []
-            for dish_order in order.dish_orders.select_related("dish").filter(
-                dish__department=department
-            ):
+            for dish_order in order.dish_orders.select_related("dish", "custom_dish").all():
+                item = dish_order.dish_or_custom_dish
+                if not item or item.department != department:
+                    continue
                 items.append(
                     {
                         "dish": PrinterDishData(
-                            dish_name=dish_order.dish.name,
-                            department=dish_order.dish.department,
+                            dish_name=item.name,
+                            department=item.department,
                         ),
                         "amount": dish_order.quantity,
                         "dish_note": dish_order.note,
@@ -67,10 +68,10 @@ class PrintService:
 
         responses = [resp for resp in (response_kitchen, response_bar) if resp]
         success = (
-            all(resp.status_code == 200 for resp in responses) if responses else True
+            all(resp.status_code == 202 for resp in responses) if responses else True
         )
         primary_response = response_kitchen or response_bar
-        status_code = primary_response.status_code if primary_response else 200
+        status_code = primary_response.status_code if primary_response else 202
         response_text = primary_response.text if primary_response else ""
 
         return (success, status_code, response_text)

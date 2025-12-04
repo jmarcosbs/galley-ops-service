@@ -9,7 +9,9 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
     """Itens restantes (ainda não liquidados) agrupados por ticket."""
 
     items = []
-    orders_qs = ticket.orders.prefetch_related("dish_orders__dish").filter(
+    orders_qs = ticket.orders.prefetch_related(
+        "dish_orders__dish", "dish_orders__custom_dish"
+    ).filter(
         dish_orders__quantity__gt=0
     )
     for dish_order in orders_qs.values_list(
@@ -18,6 +20,8 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
         "dish_orders__note",
         "dish_orders__dish__name",
         "dish_orders__dish__price",
+        "dish_orders__custom_dish__name",
+        "dish_orders__custom_dish__price",
     ):
         (
             dish_order_uuid,
@@ -25,14 +29,18 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
             note,
             dish_name,
             dish_price,
+            custom_name,
+            custom_price,
         ) = dish_order
+        name = dish_name or custom_name
+        price = dish_price if dish_price is not None else custom_price
         items.append(
             {
                 "uuid": str(dish_order_uuid),
-                "name": dish_name,
+                "name": name,
                 "quantity": float(quantity),
                 "note": note,
-                "price": float(dish_price),
+                "price": float(price),
             }
         )
     return items
