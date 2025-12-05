@@ -4,13 +4,13 @@ import requests
 
 
 class ServiceStatusResponseType(TypedDict):
-    ambient_type: Literal[1, 2]  # 1 - Produção, 2 - Homologação
+    ambient_type: Literal["1", "2"]  # 1 - Produção, 2 - Homologação (texto)
     app_version: str  # versão da aplicação SEFAZ
-    service_status: int  # status do serviço
+    service_status: str  # status do serviço (texto retornado pelo XML)
     service_status_message: str  # mensagem do status do serviço
-    uf_code: int  # código da UF
+    uf_code: str  # código da UF
     reception_datetime: str  # data e hora de recebimento
-    response_time: int  # tempo de resposta em segundos
+    response_time: str  # tempo de resposta em segundos
 
 
 class FiscalProductType(TypedDict):

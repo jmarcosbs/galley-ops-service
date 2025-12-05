@@ -1,29 +1,53 @@
 import logging
+from typing import Optional
 
-try:
-    from nfce.client import NFeClient
-except ImportError:  # optional dependency
-    NFeClient = None  # type: ignore
-
+from nfce.services import NFCeService
+from nfce.types import SendNFCEResponse, ServiceStatusResponseType
 from orders.models import TicketSettlement
 
 logger = logging.getLogger(__name__)
 
 
 class OrderHelper:
+    def __init__(self) -> None:
+        try:
+            self.nfce_service: Optional[NFCeService] = NFCeService()
+        except Exception as exc:
+            logger.warning("NFCE service não pôde ser inicializado: %s", exc)
+            self.nfce_service = None
 
-    def __init__(self):
-        self.nfce_client = NFeClient() if NFeClient else None
+    def _check_service(self) -> tuple[bool, Optional[ServiceStatusResponseType]]:
+        if not self.nfce_service:
+            return False, None
+        status = self.nfce_service.status_servico()
+        # cStat 107 = Serviço em Operação
+        is_available = status.get("service_status") == 107
+        return is_available, status
 
-    def send_nfce(self, settlement: TicketSettlement) -> None:
+    def send_nfce(self, settlement: TicketSettlement) -> Optional[SendNFCEResponse]:
+        """
+        Emite NFC-e para um fechamento, em modo normal quando o serviço está
+        disponível ou em contingência quando indisponível.
+        """
+        if not self.nfce_service:
+            logger.info("NFCE service não configurado; pulando envio.")
+            return None
 
-        if not self.nfce_client:
-            logger.info("NFCE client não configurado; pulando envio.")
-            return
+        is_available, status = self._check_service()
+        is_contingency = not is_available
+        contingency_message = None
+        if is_contingency:
+            status_message = status.get("service_status_message") if status else ""
+            contingency_message = (
+                status_message or "Serviço da SEFAZ indisponível - contingência"
+            )
 
-        # Verifica se o sistema está disponível
-        if not self.nfce_client.status_servico():
-            raise Exception("Sistema de NFCE não está disponível")
-
-        # Envia a NFCE
-        # self.nfce_client.send_nfce(settlement)
+        nfce = self.nfce_service.create_nfce(
+            settlement, is_contingency=is_contingency
+        )
+        return self.nfce_service.send_nfce(
+            nfce,
+            settlement,
+            is_contingency=is_contingency,
+            contingency_message=contingency_message,
+        )
