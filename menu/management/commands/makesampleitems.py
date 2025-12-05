@@ -1,5 +1,7 @@
 import json
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
+from random import Random
 from typing import Any
 
 from django.core.management.base import BaseCommand
@@ -679,14 +681,23 @@ class Command(BaseCommand):
         parser.add_argument(
             "--price",
             type=float,
-            default=0.0,
-            help="Preço padrão para os itens criados (default: 0.0).",
+            default=None,
+            help=(
+                "Preço fixo para os itens criados. Se omitido, gera preços "
+                "aleatórios por item."
+            ),
         )
         parser.add_argument(
             "--ncm",
             type=str,
             default="00000000",
             help="Código NCM a ser usado/criado para os itens de exemplo.",
+        )
+        parser.add_argument(
+            "--seed",
+            type=int,
+            default=42,
+            help="Seed para gerar preços aleatórios reprodutíveis.",
         )
 
     @staticmethod
@@ -700,6 +711,35 @@ class Command(BaseCommand):
             "copa": DepartmentChoices.BAR,
         }
         return mapping.get((raw or "").lower(), DepartmentChoices.KITCHEN)
+
+    @staticmethod
+    def _quantize_price(value: float | Decimal) -> Decimal:
+        return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _price_bounds(
+        self, department: str, category_name: str
+    ) -> tuple[Decimal, Decimal]:
+        normalized_category = (category_name or "").lower()
+
+        if "acompanh" in normalized_category:
+            return Decimal("8.00"), Decimal("32.00")
+
+        if department == DepartmentChoices.KITCHEN:
+            return Decimal("45.00"), Decimal("210.00")
+
+        return Decimal("5.00"), Decimal("45.00")
+
+    def _generate_item_price(
+        self,
+        base_seed: int,
+        item_id: int,
+        department: str,
+        category_name: str,
+    ) -> Decimal:
+        min_price, max_price = self._price_bounds(department, category_name)
+        rng = Random(base_seed + item_id)
+        raw_price = rng.uniform(float(min_price), float(max_price))
+        return self._quantize_price(raw_price)
 
     def _get_or_create_ncm(self, code: str) -> NCM:
         normalized = code.replace(" ", "").replace(".", "")
@@ -719,8 +759,13 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         payload = json.loads(self.SAMPLE_JSON)
-        default_price = options["price"]
+        fixed_price = options["price"]
         ncm_code = options["ncm"]
+        price_seed = options["seed"]
+
+        fixed_price_decimal = (
+            self._quantize_price(fixed_price) if fixed_price is not None else None
+        )
 
         ncm = self._get_or_create_ncm(ncm_code)
 
@@ -781,6 +826,13 @@ class Command(BaseCommand):
                     dept = self._map_department(item.get("departiment"))
                     dish_name = item["name"]
                     description = item.get("description") or ""
+                    item_price = (
+                        fixed_price_decimal
+                        if fixed_price_decimal is not None
+                        else self._generate_item_price(
+                            price_seed, item["id"], dept, cat_name
+                        )
+                    )
                     dish, dish_created = Dish.objects.get_or_create(
                         name=dish_name,
                         defaults={
@@ -788,7 +840,7 @@ class Command(BaseCommand):
                             "ncm": ncm,
                             "category": category,
                             "department": dept,
-                            "price": default_price,
+                            "price": item_price,
                             "is_available": True,
                         },
                     )
@@ -798,8 +850,8 @@ class Command(BaseCommand):
                         dish.description = description
                         dish.category = category
                         dish.department = dept
-                        if dish.price != default_price:
-                            dish.price = default_price
+                        if dish.price != item_price:
+                            dish.price = item_price
                         if not dish.is_available:
                             dish.is_available = True
                         dish.save(
