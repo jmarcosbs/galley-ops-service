@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from typing import Optional, cast
 from lxml import etree
 from pynfe.processamento.comunicacao import ComunicacaoSefaz
@@ -27,6 +28,8 @@ from pynfe.processamento.assinatura import AssinaturaA1
 from pynfe.utils.flags import CODIGO_BRASIL
 from decimal import Decimal
 import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class NFCeService:
@@ -95,51 +98,64 @@ class NFCeService:
         self,
         tax_note: NotaFiscal,
         settlement_item: TicketSettlementItem,
+        is_first_item: bool = False,
     ) -> NotaFiscalProduto:
 
         dish = settlement_item.dish_order.dish
         settlement = settlement_item.settlement
 
+        discount_value: Decimal = Decimal("0")
         if settlement.discounts_value > 0:
-            Decimal(
-                discount_value=(
-                    settlement_item.dish_order_price
-                    * settlement.discounts_value
-                    / settlement.full_value
-                )
+            discount_value = (
+                Decimal(str(settlement_item.dish_order_price))
+                * Decimal(str(settlement.discounts_value))
+                / Decimal(str(settlement.full_value))
             )
-        else:
-            discount_value = None
 
+        addition_value: Decimal = Decimal("0")
         if settlement.additions_value > 0:
-            Decimal(
-                addition_value=(
-                    settlement_item.dish_order_price
-                    * settlement.additions_value
-                    / settlement.full_value
-                )
+            addition_value = (
+                Decimal(str(settlement_item.dish_order_price))
+                * Decimal(str(settlement.additions_value))
+                / Decimal(str(settlement.full_value))
             )
-        else:
-            addition_value = None
+
+        descricao = (
+            "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
+            if self.homologacao and is_first_item
+            else dish.name
+        )
 
         product_tax_note = tax_note.adicionar_produto_servico(
             nota_fiscal=tax_note,
-            codigo=dish.id,
-            descricao=dish.name,
-            ncm=dish.ncm,
+            codigo=str(dish.id),
+            descricao=descricao,
+            ncm=str(dish.ncm.code),
             cfop="5102",
             unidade_comercial="UN",
             ean="SEM GTIN",
             ean_tributavel="SEM GTIN",
-            quantidade_comercial=settlement_item.quantity,
-            valor_unitario_comercial=dish.price,
-            valor_total_bruto=dish.price * settlement_item.quantity,
+            quantidade_comercial=Decimal(str(settlement_item.quantity)),
+            valor_unitario_comercial=Decimal(str(dish.price)),
+            valor_total_bruto=Decimal(str(dish.price))
+            * Decimal(str(settlement_item.quantity)),
             unidade_tributavel="UN",
-            quantidade_tributavel=settlement_item.quantity,
-            valor_unitario_tributavel=dish.price,
+            quantidade_tributavel=Decimal(str(settlement_item.quantity)),
+            valor_unitario_tributavel=Decimal(str(dish.price)),
             outras_despesas_acessorias=addition_value,
             desconto=discount_value,
         )
+        # indTot: 0 = não compõe total da NF, 1 = compõe total
+        product_tax_note.ind_total = 1
+        # campo opcional; precisa existir para serializacao mas não enviar valor
+        product_tax_note.valor_tributos_aprox = Decimal("0")
+        # ICMS: usa CSOSN 400 (não tributada) e origem nacional (0)
+        product_tax_note.icms_modalidade = "102"
+        product_tax_note.icms_csosn = "400"
+        product_tax_note.icms_origem = 0
+        # PIS/COFINS: não tributado (NT)
+        product_tax_note.pis_modalidade = "07"
+        product_tax_note.cofins_modalidade = "07"
 
         return product_tax_note
 
@@ -178,10 +194,15 @@ class NFCeService:
 
     def create_nfce(
         self,
-        TicketSettlement: TicketSettlement,
+        settlement: TicketSettlement,
         is_contingency: bool = False,
         cliente: Optional[Cliente] = None,
     ) -> NotaFiscal:
+        logger.info(
+            "Montando NFC-e para fechamento %s (contingência=%s)",
+            settlement.id,
+            is_contingency,
+        )
 
         nota_fiscal = NotaFiscal(
             emitente=self.emitente,
@@ -192,7 +213,7 @@ class NFCeService:
             tipo_pagamento=1,
             modelo=65,  # 65=NFC-e
             serie="1",
-            numero_nf=TicketSettlement.id,  # Número do Documento Fiscal.
+            numero_nf=settlement.id,  # Número do Documento Fiscal.
             data_emissao=datetime.datetime.now(),
             data_saida_entrada=datetime.datetime.now(),
             tipo_documento=1,  # 1=saida
@@ -207,13 +228,21 @@ class NFCeService:
             finalidade_emissao="1",  # 1=NF-e normal
             processo_emissao="0",  # 0=Emissão de NF-e com aplicativo do contribuinte;
             transporte_modalidade_frete=9,  # 9=Sem Ocorrência de Transporte.
-            totais_tributos_aproximado=TicketSettlement.total_taxes(),
+            totais_tributos_aproximado=None,
         )
 
         self._adicionar_responsavel_tecnico(nota_fiscal)
 
-        for settlement_item in TicketSettlement.items.all():
-            self._adicionar_produto_servico(nota_fiscal, settlement_item)
+        settlement_items = list(
+            settlement.items.order_by("created_at", "id")
+            if hasattr(settlement.items, "order_by")
+            else settlement.items.all()
+        )
+
+        for idx, settlement_item in enumerate(settlement_items):
+            self._adicionar_produto_servico(
+                nota_fiscal, settlement_item, is_first_item=(idx == 0)
+            )
 
         return nota_fiscal
 
@@ -224,6 +253,11 @@ class NFCeService:
         is_contingency: bool = False,
         contingency_message: Optional[str] = None,
     ) -> SendNFCEResponse:
+        logger.info(
+            "Enviando NFC-e para fechamento %s (contingência=%s)",
+            settlement.id,
+            is_contingency,
+        )
 
         if is_contingency and not contingency_message:
             raise ValueError(
@@ -247,6 +281,12 @@ class NFCeService:
             self.token, self.csc, xml, return_qr=True
         )
         emission_datetime = self._obter_data_emissao(xml_com_qrcode)
+        logger.info(
+            "NFC-e %s pronta para envio (contingência=%s, qrcode_url=%s)",
+            settlement.id,
+            is_contingency,
+            qrcode_url,
+        )
 
         envio: AutorizacaoResponse = self.comunicacao_sefaz.autorizacao(
             modelo="nfce", nota_fiscal=xml_com_qrcode
@@ -283,8 +323,9 @@ class NFCeService:
                         "updated_at",
                     ]
                 )
-                print("Sucesso!")
-                print(proc_xml_str)
+                logger.info(
+                    "NFC-e %s autorizada em modo síncrono", settlement.id
+                )
             # envio assíncrono retorna número do recibo e xml enviado
             else:
                 async_envio = cast(AutorizacaoAsyncSuccess, envio)
@@ -299,6 +340,11 @@ class NFCeService:
                     "receipt": async_envio[1],
                     "nota_fiscal": async_envio[2],
                 }
+                logger.info(
+                    "NFC-e %s recebida em modo assíncrono, recibo %s",
+                    settlement.id,
+                    async_envio[1],
+                )
                 settlement.nfce_xml = nota_fiscal_str
                 settlement.nfce_qrcode_url = qrcode_url
                 settlement.nfce_issued_at = emission_datetime
@@ -320,10 +366,11 @@ class NFCeService:
                 "response": failure_envio[1],
                 "nota_fiscal": failure_envio[2],
             }
-            print("Erro:")
-            print(failure_envio[1].text)  # resposta
-            print("Nota:")
-            print(etree.tostring(failure_envio[2], encoding="unicode"))  # nfe
+            logger.error(
+                "Erro ao emitir NFC-e %s: %s",
+                settlement.id,
+                failure_envio[1].text,
+            )
 
         return response
 
