@@ -28,6 +28,7 @@ from pynfe.processamento.assinatura import AssinaturaA1
 from pynfe.utils.flags import CODIGO_BRASIL
 from decimal import Decimal
 import datetime
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -151,11 +152,11 @@ class NFCeService:
         product_tax_note.valor_tributos_aprox = Decimal("0")
         # ICMS: usa CSOSN 400 (não tributada) e origem nacional (0)
         product_tax_note.icms_modalidade = "102"
-        product_tax_note.icms_csosn = "400"
+        product_tax_note.icms_csosn = "102"
         product_tax_note.icms_origem = 0
         # PIS/COFINS: não tributado (NT)
-        product_tax_note.pis_modalidade = "07"
-        product_tax_note.cofins_modalidade = "07"
+        product_tax_note.pis_modalidade = ""
+        product_tax_note.cofins_modalidade = ""
 
         return product_tax_note
 
@@ -204,18 +205,20 @@ class NFCeService:
             is_contingency,
         )
 
+        agora = timezone.localtime(timezone.now())
+
         nota_fiscal = NotaFiscal(
             emitente=self.emitente,
             cliente=cliente,
             uf=self.uf.upper(),
             natureza_operacao="VENDA",  # Venda
             forma_pagamento=0,  # 0=Pagamento à vista
-            tipo_pagamento=1,
+            tipo_pagamento=3,
             modelo=65,  # 65=NFC-e
             serie="1",
             numero_nf=settlement.id,  # Número do Documento Fiscal.
-            data_emissao=datetime.datetime.now(),
-            data_saida_entrada=datetime.datetime.now(),
+            data_emissao=agora,
+            data_saida_entrada=agora,
             tipo_documento=1,  # 1=saida
             municipio="4205407",  # Código IBGE do Município
             tipo_impressao_danfe=4,  # 4=DANFE NFC-e;
@@ -323,9 +326,7 @@ class NFCeService:
                         "updated_at",
                     ]
                 )
-                logger.info(
-                    "NFC-e %s autorizada em modo síncrono", settlement.id
-                )
+                logger.info("NFC-e %s autorizada em modo síncrono", settlement.id)
             # envio assíncrono retorna número do recibo e xml enviado
             else:
                 async_envio = cast(AutorizacaoAsyncSuccess, envio)
@@ -389,7 +390,7 @@ class NFCeService:
         evento.justificativa = nfe["justification"]
         evento.n_seq_evento = int(nfe.get("sequence", 1) or 1)
         evento.uf = self.uf.upper()
-        evento.data_emissao = datetime.datetime.now()
+        evento.data_emissao = timezone.localtime(timezone.now())
 
         serializador = SerializacaoXML(_fonte_dados, homologacao=self.homologacao)
         evento_xml = serializador.serializar_evento(evento)
