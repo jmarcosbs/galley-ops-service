@@ -229,11 +229,20 @@ class TicketSettlementView(APIView):
                     quantity=item["dish_order_quantity"],
                 )
 
+            helper = OrderHelper()
             try:
-                helper = OrderHelper()
-                helper.send_nfce(settlement)
-            except Exception as exc:
-                logger.warning("NFCE não enviada: %s", exc)
+                response = helper.send_nfce(settlement)
+            except Exception:
+                logger.exception(
+                    "Erro ao emitir NFC-e para fechamento %s", settlement.id
+                )
+                raise
+            if not response or not response.get("success"):
+                logger.error(
+                    "Falha na emissão da NFC-e para fechamento %s, abortando fechamento.",
+                    settlement.id,
+                )
+                raise ValidationError("Falha na emissão da NFC-e; conta não foi fechada.")
 
         broadcast_open_tables()
 

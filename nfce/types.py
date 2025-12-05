@@ -1,4 +1,5 @@
-from typing import Literal, TypedDict, Optional, Decimal, NotRequired, Tuple, Union
+from typing import Literal, TypedDict, Optional, NotRequired, Tuple, Union
+from decimal import Decimal
 from lxml import etree
 import requests
 

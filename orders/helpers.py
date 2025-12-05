@@ -20,8 +20,14 @@ class OrderHelper:
         if not self.nfce_service:
             return False, None
         status = self.nfce_service.status_servico()
+        logger.info(
+            "Status SEFAZ retorno: ambiente=%s status=%s msg=%s",
+            status.get("ambient_type"),
+            status.get("service_status"),
+            status.get("service_status_message"),
+        )
         # cStat 107 = Serviço em Operação
-        is_available = status.get("service_status") == 107
+        is_available = status.get("service_status") == "107"
         return is_available, status
 
     def send_nfce(self, settlement: TicketSettlement) -> Optional[SendNFCEResponse]:
@@ -33,6 +39,7 @@ class OrderHelper:
             logger.info("NFCE service não configurado; pulando envio.")
             return None
 
+        logger.info("Iniciando emissão NFC-e para fechamento %s", settlement.id)
         is_available, status = self._check_service()
         is_contingency = not is_available
         contingency_message = None
@@ -41,13 +48,25 @@ class OrderHelper:
             contingency_message = (
                 status_message or "Serviço da SEFAZ indisponível - contingência"
             )
+            logger.warning(
+                "Emitindo em contingência para fechamento %s: status=%s msg=%s",
+                settlement.id,
+                status.get("service_status") if status else None,
+                status_message,
+            )
 
         nfce = self.nfce_service.create_nfce(
             settlement, is_contingency=is_contingency
         )
-        return self.nfce_service.send_nfce(
+        response = self.nfce_service.send_nfce(
             nfce,
             settlement,
             is_contingency=is_contingency,
             contingency_message=contingency_message,
         )
+        logger.info(
+            "Finalizada emissão NFC-e para fechamento %s: sucesso=%s",
+            settlement.id,
+            response["success"] if response else None,
+        )
+        return response
