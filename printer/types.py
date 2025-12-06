@@ -32,6 +32,7 @@ class PrinterBillInputType(PrinterOrderInputType):
     total: float
     amount_to_pay: float
     service: NotRequired[float]
+    access_key_url: NotRequired[str]
     company_name: NotRequired[str]
     company_address: NotRequired[str]
     company_cnpj: NotRequired[str]
@@ -50,11 +51,14 @@ class PrinterBillInputType(PrinterOrderInputType):
 class PrinterSuccessResponseType(TypedDict):
     message: str
 
+
 class PrinterErrorResponseType(TypedDict):
     detail: str
-    
+
+
 class PrinterSuccessHealthResponseType(TypedDict):
     status: str
+
 
 class PrinterErrorResponseHealthType(TypedDict):
     detail: str

@@ -134,11 +134,26 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
     final_value = models.DecimalField(max_digits=10, decimal_places=2)
     nfce_xml = models.TextField(blank=True, null=True)
     nfce_qrcode_url = models.URLField(blank=True, null=True)
-    nfce_issued_at = models.DateTimeField(blank=True, null=True)
+    nfce_access_key = models.CharField(max_length=44, blank=True, null=True)
+    nfce_access_key_url = models.URLField(blank=True, null=True)
+    nfce_number = models.CharField(max_length=9, blank=True, null=True)
+    nfce_series = models.CharField(max_length=5, blank=True, null=True)
+    nfce_emission_datetime = models.DateTimeField(blank=True, null=True)
+    nfce_authorization_protocol = models.CharField(
+        max_length=64, blank=True, null=True
+    )
+    nfce_authorization_datetime = models.DateTimeField(blank=True, null=True)
+    nfce_emitter_cnpj = models.CharField(max_length=20, blank=True, null=True)
+    nfce_emitter_uf = models.CharField(max_length=2, blank=True, null=True)
 
     @property
     def total_taxes(self):
         return sum(item.total_taxes for item in self.items.all())
+
+    @property
+    def nfce_issued_at(self):
+        """Backward-compatible alias for emission datetime."""
+        return self.nfce_emission_datetime
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

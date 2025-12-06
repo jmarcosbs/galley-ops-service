@@ -30,7 +30,9 @@ class PrintService:
 
         def _build_order_input(department: str) -> PrinterOrderInputType | None:
             items: list[PrinterOrderDishData] = []
-            for dish_order in order.dish_orders.select_related("dish", "custom_dish").all():
+            for dish_order in order.dish_orders.select_related(
+                "dish", "custom_dish"
+            ).all():
                 item = dish_order.dish_or_custom_dish
                 if not item or item.department != department:
                     continue
@@ -79,8 +81,7 @@ class PrintService:
         _safe_print(self.client.print_bar, input_for_bar, "bar")
 
         success = (
-            not errors
-            and all(resp.status_code == 202 for resp in responses)
+            not errors and all(resp.status_code == 202 for resp in responses)
             if responses
             else not errors
         )
@@ -146,8 +147,23 @@ class PrintService:
 
         if settlement.nfce_qrcode_url:
             payload["qr_url"] = settlement.nfce_qrcode_url
-        if settlement.nfce_xml:
+        if settlement.nfce_access_key:
+            payload["access_key"] = settlement.nfce_access_key
+        elif settlement.nfce_xml:
+            # Mantém fallback para registros antigos que não possuem chave armazenada.
             payload["access_key"] = settlement.nfce_xml
+        if settlement.nfce_access_key_url:
+            payload["access_key_url"] = settlement.nfce_access_key_url
+        if settlement.nfce_number:
+            payload["nfce_number"] = settlement.nfce_number
+        if settlement.nfce_series:
+            payload["nfce_series"] = settlement.nfce_series
+        if settlement.nfce_authorization_protocol:
+            payload["protocol"] = settlement.nfce_authorization_protocol
+        if settlement.nfce_authorization_datetime:
+            payload["protocol_datetime"] = self._format_datetime(
+                settlement.nfce_authorization_datetime
+            )
         if settlement.total_taxes:
             payload["total_taxes"] = str(settlement.total_taxes)
 
