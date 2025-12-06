@@ -2,7 +2,8 @@ import json
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from random import Random
-from typing import Any
+from typing import Any, cast
+from contextlib import AbstractContextManager
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -778,7 +779,7 @@ class Command(BaseCommand):
         created_options = 0
         trimmed_groups = 0
 
-        with transaction.atomic():
+        with cast(AbstractContextManager, transaction.atomic()):
             for category_data in payload.get("menu", []):
                 cat_name = category_data["category"]
                 color = self._clean_color(category_data.get("color", ""))

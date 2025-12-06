@@ -1,3 +1,4 @@
+import os
 from datetime import timezone as dt_timezone
 
 from django.utils import timezone
@@ -15,6 +16,7 @@ from orders.models import Order, TicketSettlement
 class PrintService:
     def __init__(self):
         self.client = PrinterClient()
+        self.company_data = self._build_company_data()
 
     @staticmethod
     def _format_datetime(dt) -> str:
@@ -55,7 +57,7 @@ class PrintService:
                 date_time=self._format_datetime(order.created_at),
                 table_number=order.ticket.number,
                 order_dishes=list(items),
-                order_note=order.note,
+                order_note=str(order.note),
                 waiter=order.waiter.username,
                 is_outside=False,
             )
@@ -137,31 +139,36 @@ class PrintService:
             order_note="",
             waiter=settlement.settled_by.username,
             is_outside=False,
-            total=float(settlement.full_value),
-            amount_to_pay=float(settlement.final_value),
+            subtotal=float(str(settlement.full_value)),
+            service_fee=float(str(settlement.additions_value)),
+            final_value=float(str(settlement.final_value)),
         )
 
-        adjustments = float(settlement.additions_value - settlement.discounts_value)
-        if adjustments:
-            payload["service"] = adjustments
+        payload.update(self.company_data)
 
         if settlement.nfce_qrcode_url:
-            payload["qr_url"] = settlement.nfce_qrcode_url
+            payload["qr_url"] = str(settlement.nfce_qrcode_url)
         if settlement.nfce_access_key:
-            payload["access_key"] = settlement.nfce_access_key
+            payload["access_key"] = str(settlement.nfce_access_key)
         elif settlement.nfce_xml:
             # Mantém fallback para registros antigos que não possuem chave armazenada.
-            payload["access_key"] = settlement.nfce_xml
+            payload["access_key"] = str(settlement.nfce_xml)
         if settlement.nfce_access_key_url:
-            payload["access_key_url"] = settlement.nfce_access_key_url
+            payload["access_key_url"] = str(settlement.nfce_access_key_url)
         if settlement.nfce_number:
-            payload["nfce_number"] = settlement.nfce_number
+            payload["nfce_number"] = str(settlement.nfce_number)
         if settlement.nfce_series:
-            payload["nfce_series"] = settlement.nfce_series
+            payload["nfce_series"] = str(settlement.nfce_series)
+        if settlement.nfce_emission_datetime:
+            payload["emission_datetime"] = self._format_datetime(
+                settlement.nfce_emission_datetime
+            )
         if settlement.nfce_authorization_protocol:
-            payload["protocol"] = settlement.nfce_authorization_protocol
+            payload["authorization_protocol"] = str(
+                settlement.nfce_authorization_protocol
+            )
         if settlement.nfce_authorization_datetime:
-            payload["protocol_datetime"] = self._format_datetime(
+            payload["authorization_datetime"] = self._format_datetime(
                 settlement.nfce_authorization_datetime
             )
         if settlement.total_taxes:
@@ -170,3 +177,39 @@ class PrintService:
         response = self.client.print_bill(payload)
         success = response.status_code == 202
         return (success, response.status_code, response.text)
+
+    @staticmethod
+    def _build_company_data() -> dict[str, str]:
+        company_name = (
+            os.environ.get("RAZAO_SOCIAL_EMITENTE")
+            or os.environ.get("NOME_FANTASIA_EMITENTE")
+            or ""
+        )
+        street = os.environ.get("ENDERECO_LOGRADOURO_EMITENTE") or ""
+        number = os.environ.get("ENDERECO_NUMERO_EMITENTE") or ""
+        neighborhood = os.environ.get("ENDERECO_BAIRRO_EMITENTE") or ""
+        city = os.environ.get("ENDERECO_MUNICIPIO_EMITENTE") or ""
+        state = os.environ.get("ENDERECO_UF_EMITENTE") or ""
+
+        address_parts: list[str] = []
+        if street or number:
+            joined = street.strip()
+            if number:
+                joined = f"{joined}, {number.strip()}" if joined else number.strip()
+            address_parts.append(joined)
+        if neighborhood:
+            address_parts.append(neighborhood.strip())
+        if city or state:
+            city_state = city.strip()
+            if state:
+                city_state = f"{city_state}/{state.strip()}" if city_state else state.strip()
+            address_parts.append(city_state)
+
+        company_address = " - ".join(part for part in address_parts if part)
+
+        return {
+            "company_name": company_name,
+            "company_address": company_address,
+            "company_cnpj": os.environ.get("CNPJ_EMITENTE", ""),
+            "company_ie": os.environ.get("INSCRICAO_ESTADUAL_EMITENTE", ""),
+        }
