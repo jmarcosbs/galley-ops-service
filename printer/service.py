@@ -63,18 +63,40 @@ class PrintService:
 
         print(input_for_kitchen)
 
-        response_kitchen = (
-            self.client.print_kitchen(input_for_kitchen) if input_for_kitchen else None
-        )
-        response_bar = self.client.print_bar(input_for_bar) if input_for_bar else None
+        responses: list = []
+        errors: list[str] = []
 
-        responses = [resp for resp in (response_kitchen, response_bar) if resp]
+        def _safe_print(send_fn, payload, label: str):
+            if not payload:
+                return
+            try:
+                response = send_fn(payload)
+                responses.append(response)
+            except Exception as exc:  # pragma: no cover - log/propagate aggregated
+                errors.append(f"{label}: {exc}")
+
+        _safe_print(self.client.print_kitchen, input_for_kitchen, "kitchen")
+        _safe_print(self.client.print_bar, input_for_bar, "bar")
+
         success = (
-            all(resp.status_code == 202 for resp in responses) if responses else True
+            not errors
+            and all(resp.status_code == 202 for resp in responses)
+            if responses
+            else not errors
         )
-        primary_response = response_kitchen or response_bar
-        status_code = primary_response.status_code if primary_response else 202
-        response_text = primary_response.text if primary_response else ""
+
+        primary_response = responses[0] if responses else None
+        if primary_response:
+            status_code = primary_response.status_code
+            response_parts = [primary_response.text] if primary_response.text else []
+        else:
+            status_code = 202 if success else 500
+            response_parts = []
+
+        if errors:
+            response_parts.append("; ".join(errors))
+
+        response_text = " | ".join(part for part in response_parts if part)
 
         return (success, status_code, response_text)
 

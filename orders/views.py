@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from nfce.models import NCM
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -328,9 +329,18 @@ class TicketSettlementView(APIView):
 
             additions_percentage = data.get("additions_percentage") or Decimal("0")
             discounts_percentage = data.get("discounts_percentage") or Decimal("0")
+            
+            # Printa os itens e valores
+            print("Itens e valores:")
+            for item, order in items_with_orders:
+                dish = order.dish_or_custom_dish
+                print(
+                    f"Item: {item['dish_order_uuid']}, Quantidade: {item['dish_order_quantity']}, Valor: {Decimal(dish.price) * Decimal(str(item['dish_order_quantity']))}"
+                )
 
             full_value = sum(
-                Decimal(order.dish.price) * Decimal(str(item["dish_order_quantity"]))
+                Decimal(order.dish_or_custom_dish.price)
+                * Decimal(str(item["dish_order_quantity"]))
                 for item, order in items_with_orders
             )
             final_value = (
@@ -349,10 +359,11 @@ class TicketSettlementView(APIView):
             )
 
             for item, dish_order in items_with_orders:
+                dish = dish_order.dish_or_custom_dish
                 TicketSettlementItem.objects.create(
                     settlement=settlement,
                     dish_order=dish_order,
-                    dish_order_price=dish_order.dish.price,
+                    dish_order_price=dish.price,
                     quantity=item["dish_order_quantity"],
                 )
 
@@ -391,6 +402,43 @@ class TicketSettlementView(APIView):
             )
 
         return Response(status=status.HTTP_201_CREATED)
+
+
+class TicketSettlementReprintView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, settlement_uuid: str):
+        settlement = get_object_or_404(
+            TicketSettlement.objects.select_related("ticket", "settled_by"),
+            uuid=settlement_uuid,
+        )
+
+        printer_service = PrintService()
+        try:
+            success, printer_status, printer_response = printer_service.print_bill(
+                settlement
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.exception(
+                "Erro ao reimprimir fechamento %s na impressora de contas: %s",
+                settlement.id,
+                exc,
+            )
+            raise ValidationError("Erro ao reimprimir cupom.")
+
+        if not success:
+            logger.error(
+                "Falha ao reimprimir fechamento %s (status=%s, response=%s)",
+                settlement.id,
+                printer_status,
+                printer_response,
+            )
+            raise ValidationError(
+                "Não foi possível reimprimir o cupom. Tente novamente em instantes."
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OpenTablesView(APIView):

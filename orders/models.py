@@ -158,9 +158,10 @@ class TicketSettlementItem(CommonUUIDModel, CommonTimedModel):
 
     @property
     def total_taxes(self):
-        national_percentage_tax = self.dish_order.dish.ncm.national_tax
-        state_percentage_tax = self.dish_order.dish.ncm.state_tax
-        municipal_percentage_tax = self.dish_order.dish.ncm.municipal_tax
+        dish = self.dish_order.dish_or_custom_dish
+        national_percentage_tax = dish.ncm.national_tax
+        state_percentage_tax = dish.ncm.state_tax
+        municipal_percentage_tax = dish.ncm.municipal_tax
         total_percentage = (
             national_percentage_tax + state_percentage_tax + municipal_percentage_tax
         ) / Decimal("100")
