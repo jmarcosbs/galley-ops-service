@@ -110,6 +110,44 @@ class TicketItemRemoveSerializer(serializers.Serializer):
         return validated_data
 
 
+class TicketItemIncreaseSerializer(serializers.Serializer):
+    ticket_number = serializers.IntegerField()
+    dish_order_uuid = serializers.UUIDField()
+    quantity = serializers.FloatField()
+
+    def validate_ticket_number(self, value):
+        ticket = Ticket.objects.filter(
+            number=value, status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
+        ).first()
+        if ticket is None:
+            raise serializers.ValidationError(
+                "Este ticket não encontrado ou já fechado."
+            )
+
+        self.context["ticket"] = ticket
+        return value
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("A quantidade deve ser maior que zero.")
+        return value
+
+    def validate(self, validated_data):
+        ticket = self.context.get("ticket")
+        dish_order = (
+            DishOrder.objects.select_related("order__ticket")
+            .filter(uuid=validated_data["dish_order_uuid"], order__ticket=ticket)
+            .first()
+        )
+        if dish_order is None:
+            raise serializers.ValidationError(
+                "Este item não pertence ao ticket informado."
+            )
+
+        self.context["dish_order"] = dish_order
+        return validated_data
+
+
 class TicketSettlementItemSerializer(serializers.Serializer):
     dish_order_uuid = serializers.UUIDField()
     dish_order_quantity = serializers.FloatField()

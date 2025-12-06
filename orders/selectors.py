@@ -20,8 +20,10 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
         "dish_orders__note",
         "dish_orders__dish__name",
         "dish_orders__dish__price",
+        "dish_orders__dish__department",
         "dish_orders__custom_dish__name",
         "dish_orders__custom_dish__price",
+        "dish_orders__custom_dish__department",
     ):
         (
             dish_order_uuid,
@@ -29,11 +31,14 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
             note,
             dish_name,
             dish_price,
+            dish_department,
             custom_name,
             custom_price,
+            custom_department,
         ) = dish_order
         name = dish_name or custom_name
         price = dish_price if dish_price is not None else custom_price
+        department = dish_department or custom_department
         items.append(
             {
                 "uuid": str(dish_order_uuid),
@@ -41,6 +46,7 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
                 "quantity": float(quantity),
                 "note": note,
                 "price": float(price),
+                "department": department,
             }
         )
     return items
