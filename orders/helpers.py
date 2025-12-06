@@ -2,7 +2,11 @@ import logging
 from typing import Optional
 
 from nfce.services import NFCeService
-from nfce.types import SendNFCEResponse, ServiceStatusResponseType
+from nfce.types import (
+    CancelNFeResponseType,
+    SendNFCEResponse,
+    ServiceStatusResponseType,
+)
 from orders.models import TicketSettlement
 
 logger = logging.getLogger(__name__)
@@ -55,9 +59,7 @@ class OrderHelper:
                 status_message,
             )
 
-        nfce = self.nfce_service.create_nfce(
-            settlement, is_contingency=is_contingency
-        )
+        nfce = self.nfce_service.create_nfce(settlement, is_contingency=is_contingency)
         response = self.nfce_service.send_nfce(
             nfce,
             settlement,
@@ -70,3 +72,11 @@ class OrderHelper:
             response["success"] if response else None,
         )
         return response
+
+    def cancel_nfce(
+        self, settlement: TicketSettlement, justification: str
+    ) -> Optional[CancelNFeResponseType]:
+        if not self.nfce_service:
+            logger.info("NFCE service não configurado; pulando cancelamento.")
+            return None
+        return self.nfce_service.cancel_nfe(settlement, justification)

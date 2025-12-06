@@ -84,7 +84,9 @@ class NFCeService:
         if not value:
             return None
 
-        normalized_value = value.replace("Z", "+00:00") if value.endswith("Z") else value
+        normalized_value = (
+            value.replace("Z", "+00:00") if value.endswith("Z") else value
+        )
         try:
             parsed_date = datetime.datetime.fromisoformat(normalized_value)
         except ValueError:
@@ -468,22 +470,33 @@ class NFCeService:
 
         return response
 
-    def cancel_nfe(self, nfe: NFe) -> CancelNFeResponseType:
-        required_fields = ("access_key", "protocol", "justification")
-        missing_fields = [field for field in required_fields if not nfe.get(field)]
+    def cancel_nfe(
+        self, settlement: TicketSettlement, justification: str
+    ) -> CancelNFeResponseType:
+        required_fields = (
+            "nfce_access_key",
+            "nfce_authorization_protocol",
+            "nfce_emitter_cnpj",
+            "nfce_emitter_uf",
+        )
+        missing_fields = [
+            field for field in required_fields if not settlement.get(field)
+        ]
         if missing_fields:
             raise ValueError(
                 f"Os campos {', '.join(missing_fields)} são obrigatórios para o cancelamento."
             )
 
-        evento = EventoCancelarNota()
-        evento.cnpj = self.emitente.cnpj
-        evento.chave = nfe["access_key"]
-        evento.protocolo = nfe["protocol"]
-        evento.justificativa = nfe["justification"]
-        evento.n_seq_evento = int(nfe.get("sequence", 1) or 1)
-        evento.uf = self.uf.upper()
-        evento.data_emissao = timezone.localtime(timezone.now())
+        evento = EventoCancelarNota(
+            EventoCancelarNota(
+                cnpj=settlement.nfce_emitter_cnpj,  # cpf ou cnpj do emissor
+                chave=settlement.nfce_access_key,  # chave de acesso da nota
+                data_emissao=datetime.datetime.now(),
+                uf=settlement.nfce_emitter_uf,
+                protocolo=settlement.nfce_authorization_protocol,  # número do protocolo da nota
+                justificativa=justification,
+            )
+        )
 
         serializador = SerializacaoXML(_fonte_dados, homologacao=self.homologacao)
         evento_xml = serializador.serializar_evento(evento)
