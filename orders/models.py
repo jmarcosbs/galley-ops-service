@@ -45,7 +45,7 @@ class DishOrder(CommonTimedModel, CommonUUIDModel):
     )
     quantity = models.FloatField()
     note = models.TextField(blank=True, null=True)
-    
+
     @property
     def dish_or_custom_dish(self) -> Dish | CustomDish:
         return self.dish or self.custom_dish
@@ -139,12 +139,13 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
     nfce_number = models.CharField(max_length=9, blank=True, null=True)
     nfce_series = models.CharField(max_length=5, blank=True, null=True)
     nfce_emission_datetime = models.DateTimeField(blank=True, null=True)
-    nfce_authorization_protocol = models.CharField(
-        max_length=64, blank=True, null=True
-    )
+    nfce_authorization_protocol = models.CharField(max_length=64, blank=True, null=True)
     nfce_authorization_datetime = models.DateTimeField(blank=True, null=True)
     nfce_emitter_cnpj = models.CharField(max_length=20, blank=True, null=True)
     nfce_emitter_uf = models.CharField(max_length=2, blank=True, null=True)
+
+    canceled = models.BooleanField(default=False)
+    cancelation_xml = models.TextField(blank=True, null=True)
 
     @property
     def total_taxes(self):

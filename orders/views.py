@@ -21,6 +21,7 @@ from orders.serializers import (
     TicketItemIncreaseSerializer,
     TicketItemRemoveSerializer,
     TicketSettlementSerializer,
+    TicketSettlementCancelSerializer,
 )
 from orders.models import (
     DishOrder,
@@ -43,7 +44,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _create_dish_order_from_payload(order: Order, dish_data: dict[str, Any]) -> DishOrder:
+def _create_dish_order_from_payload(
+    order: Order, dish_data: dict[str, Any]
+) -> DishOrder:
     """
     Cria um DishOrder (e relacionamentos) a partir de dados validados do serializer.
     """
@@ -93,7 +96,7 @@ class OrderView(APIView):
 
     def post(self, request: Request):
         user = request.user
-        
+
         # printa o payload recebido
         print(request.data)
 
@@ -159,7 +162,9 @@ class OrderView(APIView):
         if order:
             try:
                 printer_service = PrintService()
-                success, printer_status, printer_response = printer_service.print_order(order)
+                success, printer_status, printer_response = printer_service.print_order(
+                    order
+                )
                 if not success:
                     logger.warning(
                         "Falha ao enviar pedido %s para impressoras (status=%s, response=%s)",
@@ -167,8 +172,12 @@ class OrderView(APIView):
                         printer_status,
                         printer_response,
                     )
-            except Exception as exc:  # pragma: no cover - fallback para evitar quebrar pedidos
-                logger.exception("Erro ao enviar pedido %s para impressoras: %s", order.id, exc)
+            except (
+                Exception
+            ) as exc:  # pragma: no cover - fallback para evitar quebrar pedidos
+                logger.exception(
+                    "Erro ao enviar pedido %s para impressoras: %s", order.id, exc
+                )
 
         return Response(status=status.HTTP_200_OK)
 
@@ -329,7 +338,7 @@ class TicketSettlementView(APIView):
 
             additions_percentage = data["additions_percentage"]
             discounts_percentage = data.get("discounts_percentage") or Decimal("0")
-            
+
             # Printa os itens e valores
             print("Itens e valores:")
             for item, order in items_with_orders:
@@ -380,13 +389,17 @@ class TicketSettlementView(APIView):
                     "Falha na emissão da NFC-e para fechamento %s, abortando fechamento.",
                     settlement.id,
                 )
-                raise ValidationError("Falha na emissão da NFC-e; conta não foi fechada.")
+                raise ValidationError(
+                    "Falha na emissão da NFC-e; conta não foi fechada."
+                )
 
         broadcast_open_tables()
 
         try:
             printer_service = PrintService()
-            success, printer_status, printer_response = printer_service.print_bill(settlement)
+            success, printer_status, printer_response = printer_service.print_bill(
+                settlement
+            )
             if not success:
                 logger.warning(
                     "Falha ao enviar fechamento %s para impressora de contas (status=%s, response=%s)",
@@ -449,3 +462,35 @@ class OpenTablesView(APIView):
     def get(self, request: Request):
         tables = serialize_open_tables(include_items=True)
         return Response({"tables": tables}, status=status.HTTP_200_OK)
+
+
+class TicketSettlementCancelView(APIView):
+    """
+    Cancela um fechamento.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        serializer = TicketSettlementCancelSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = cast(dict[str, Any], serializer.validated_data)
+        settlement_uuid = validated_data["settlement_uuid"]
+        justification = validated_data["justification"]
+
+        settlement = get_object_or_404(
+            TicketSettlement.objects.select_related("ticket", "settled_by"),
+            uuid=settlement_uuid,
+        )
+
+        helper = OrderHelper()
+        response = helper.cancel_nfce(settlement, justification)
+        if not response or not response.get("success"):
+            logger.error(
+                "Falha ao cancelar NFC-e para fechamento %s, abortando cancelamento.",
+                settlement.id,
+            )
+            raise ValidationError(
+                "Falha ao cancelar NFC-e; fechamento não foi cancelado."
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
