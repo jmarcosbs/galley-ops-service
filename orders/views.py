@@ -1,7 +1,6 @@
 from contextlib import AbstractContextManager
 from decimal import Decimal
-from typing import cast
-
+from typing import Any, cast
 
 from django.db import transaction
 from nfce.models import NCM
@@ -17,6 +16,8 @@ from orders.helpers import OrderHelper
 from orders.selectors import serialize_open_tables
 from orders.serializers import (
     OrderSerializer,
+    TicketItemAddSerializer,
+    TicketItemRemoveSerializer,
     TicketSettlementSerializer,
 )
 from orders.models import (
@@ -29,16 +30,59 @@ from orders.models import (
     TicketStatus,
 )
 from orders.services import broadcast_open_tables
+from printer.service import PrintService
 from orders.types import (
     SerializedOrderDataType,
     SerializedSettlementDataType,
     SerializedSettlementItemDataType,
 )
-from printer.service import PrintService
-from telegram.service import TelegramService
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _create_dish_order_from_payload(order: Order, dish_data: dict[str, Any]) -> DishOrder:
+    """
+    Cria um DishOrder (e relacionamentos) a partir de dados validados do serializer.
+    """
+    if dish_data.get("dish_uuid"):
+        dish = Dish.objects.get(uuid=dish_data["dish_uuid"])
+        dish_order = DishOrder.objects.create(
+            order=order,
+            dish=dish,
+            quantity=dish_data["amount"],
+            note=dish_data.get("dish_note"),
+        )
+
+        for side_dish_data in dish_data.get("side_dishes", []):
+            side_dish = SideDish.objects.get(uuid=side_dish_data["side_dish_uuid"])
+            option = dish.side_dish_options.filter(side_dishes=side_dish).first()
+            if not option:
+                raise ValidationError(
+                    f"Acompanhamento {side_dish} não disponível para {dish}."
+                )
+            DishOrderSideDish.objects.create(
+                dish_order=dish_order, option=option, side_dish=side_dish
+            )
+    else:
+        custom_data = dish_data["custom_dish"]
+        ncm = NCM.objects.get(code=custom_data["ncm"])
+
+        custom_dish = CustomDish.objects.create(
+            name=custom_data["name"],
+            price=custom_data["price"],
+            ncm=ncm,
+            department=custom_data["department"],
+        )
+
+        dish_order = DishOrder.objects.create(
+            order=order,
+            custom_dish=custom_dish,
+            quantity=dish_data["amount"],
+            note=dish_data.get("dish_note"),
+        )
+
+    return dish_order
 
 
 class OrderView(APIView):
@@ -64,6 +108,8 @@ class OrderView(APIView):
 
         ticket_number = serialized_order_data["ticket"]
 
+        order: Order | None = None
+
         try:
             with cast(AbstractContextManager, transaction.atomic()):
                 ticket = Ticket.objects.filter(
@@ -85,55 +131,7 @@ class OrderView(APIView):
                 )
 
                 for dish_data in serialized_order_data["dishes"]:
-                    # Se contém o uuid, é um prato do cardápio
-                    if dish_data["dish_uuid"]:
-                        dish = Dish.objects.get(uuid=dish_data["dish_uuid"])
-                        dish_order = DishOrder.objects.create(
-                            order=order,
-                            dish=dish,
-                            quantity=dish_data["amount"],
-                            note=dish_data.get("dish_note"),
-                        )
-
-                        for side_dish_data in dish_data.get("side_dishes", []):
-                            side_dish = SideDish.objects.get(
-                                uuid=side_dish_data["side_dish_uuid"]
-                            )
-                            option = dish.side_dish_options.filter(
-                                side_dishes=side_dish
-                            ).first()
-                            if not option:
-                                raise ValidationError(
-                                    f"Acompanhamento {side_dish} não disponível para {dish}."
-                                )
-                            DishOrderSideDish.objects.create(
-                                dish_order=dish_order, option=option, side_dish=side_dish
-                            )
-                    else:
-                        # Se não contém o uuid, é um item customizado
-                        
-                        # Obtém o NCM pelo código
-                        ncm = NCM.objects.get(code=dish_data["custom_dish"]["ncm"])
-                        
-                        custom_dish = CustomDish.objects.create(
-                            name=dish_data["custom_dish"]["name"],
-                            price=dish_data["custom_dish"]["price"],
-                            ncm=ncm,
-                            department=dish_data["custom_dish"]["department"],
-                        )
-                        
-                        dish_order = DishOrder.objects.create(
-                            order=order,
-                            custom_dish=custom_dish,
-                            quantity=dish_data["amount"],
-                            note=dish_data.get("dish_note"),
-                        )
-
-            # Envia pedido para impressão
-            print_service = PrintService()
-            printed, _, response_text = print_service.print_order(order)
-            if not printed:
-                raise Exception(f"Erro ao imprimir pedido: {response_text}")
+                    _create_dish_order_from_payload(order, dish_data)
 
         except ValidationError as exc:
             return Response(
@@ -156,7 +154,107 @@ class OrderView(APIView):
 
         broadcast_open_tables()
 
+        if order:
+            try:
+                printer_service = PrintService()
+                success, printer_status, printer_response = printer_service.print_order(order)
+                if not success:
+                    logger.warning(
+                        "Falha ao enviar pedido %s para impressoras (status=%s, response=%s)",
+                        order.id,
+                        printer_status,
+                        printer_response,
+                    )
+            except Exception as exc:  # pragma: no cover - fallback para evitar quebrar pedidos
+                logger.exception("Erro ao enviar pedido %s para impressoras: %s", order.id, exc)
+
         return Response(status=status.HTTP_200_OK)
+
+
+class TicketItemAddView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        serializer = TicketItemAddSerializer(data=request.data)
+        if not serializer.is_valid():
+            logger.warning(
+                "Payload inválido ao adicionar item: %s | data=%s",
+                serializer.errors,
+                request.data,
+            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        ticket = cast(Ticket, serializer.context.get("ticket"))
+        if not ticket:
+            raise ValidationError("Ticket não encontrado ou já fechado.")
+
+        dish_data = dict(serializer.validated_data)
+        dish_data.pop("ticket_number", None)
+
+        dish_order: DishOrder | None = None
+        try:
+            with cast(AbstractContextManager, transaction.atomic()):
+                order = Order.objects.create(
+                    ticket=ticket,
+                    waiter=request.user,
+                    note=None,
+                )
+                dish_order = _create_dish_order_from_payload(order, dish_data)
+
+        except ValidationError as exc:
+            return Response(
+                {"detail": exc.detail if hasattr(exc, "detail") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Dish.DoesNotExist:
+            return Response(
+                {"detail": "Prato não encontrado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except SideDish.DoesNotExist:
+            return Response(
+                {"detail": "Acompanhamento não encontrado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        broadcast_open_tables()
+
+        return Response(
+            {
+                "detail": "Item adicionado com sucesso.",
+                "item_uuid": str(dish_order.uuid) if dish_order else None,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class TicketItemRemoveView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        serializer = TicketItemRemoveSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        ticket = cast(Ticket, serializer.context.get("ticket"))
+        dish_order = cast(DishOrder, serializer.context.get("dish_order"))
+        quantity = serializer.validated_data["quantity"]
+
+        with cast(AbstractContextManager, transaction.atomic()):
+            dish_order.quantity -= quantity
+            dish_order.save(update_fields=["quantity", "updated_at"])
+            ticket.refresh_status_from_orders()
+            transaction.on_commit(lambda: broadcast_open_tables())
+
+        return Response(
+            {
+                "detail": "Item removido com sucesso.",
+                "remaining_quantity": dish_order.quantity,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class TicketSettlementView(APIView):
