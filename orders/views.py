@@ -474,23 +474,42 @@ class TicketSettlementCancelView(APIView):
     def post(self, request: Request):
         serializer = TicketSettlementCancelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        validated_data = cast(dict[str, Any], serializer.validated_data)
-        settlement_uuid = validated_data["settlement_uuid"]
-        justification = validated_data["justification"]
+        settlement = cast(TicketSettlement, serializer.context.get("settlement"))
+        justification = cast(str, serializer.validated_data["justification"])
 
-        settlement = get_object_or_404(
-            TicketSettlement.objects.select_related("ticket", "settled_by"),
-            uuid=settlement_uuid,
-        )
+        with cast(AbstractContextManager, transaction.atomic()):
+            helper = OrderHelper()
+            try:
+                response = helper.cancel_nfce(settlement, justification)
+            except ValueError as exc:
+                raise ValidationError(str(exc))
 
-        helper = OrderHelper()
-        response = helper.cancel_nfce(settlement, justification)
-        if not response or not response.get("success"):
-            logger.error(
-                "Falha ao cancelar NFC-e para fechamento %s, abortando cancelamento.",
-                settlement.id,
-            )
-            raise ValidationError(
-                "Falha ao cancelar NFC-e; fechamento não foi cancelado."
-            )
+            if not response or not response.get("success"):
+                logger.error(
+                    "Falha ao cancelar NFC-e para fechamento %s, abortando cancelamento.",
+                    settlement.id,
+                )
+                raise ValidationError(
+                    "Falha ao cancelar NFC-e; fechamento não foi cancelado."
+                )
+
+            raw_response = response.get("raw_response") if isinstance(response, dict) else None
+            cancelation_xml = None
+            if raw_response:
+                if isinstance(raw_response, (bytes, bytearray)):
+                    cancelation_xml = raw_response.decode("utf-8", errors="ignore")
+                else:
+                    cancelation_xml = str(raw_response)
+
+            for item in settlement.items.select_related("dish_order"):
+                dish_order = item.dish_order
+                dish_order.quantity += item.quantity
+                dish_order.save(update_fields=["quantity", "updated_at"])
+
+            settlement.canceled = True
+            settlement.cancelation_xml = cancelation_xml
+            settlement.save(update_fields=["canceled", "cancelation_xml", "updated_at"])
+            settlement.ticket.refresh_status_from_orders()
+            transaction.on_commit(lambda: broadcast_open_tables())
+
         return Response(status=status.HTTP_204_NO_CONTENT)

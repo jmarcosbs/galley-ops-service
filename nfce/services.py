@@ -480,7 +480,7 @@ class NFCeService:
             "nfce_emitter_uf",
         )
         missing_fields = [
-            field for field in required_fields if not settlement.get(field)
+            field for field in required_fields if not getattr(settlement, field)
         ]
         if missing_fields:
             raise ValueError(
