@@ -78,6 +78,28 @@ class NFCeService:
             fone=os.environ.get("FONE_RESPONSAVEL_TECNICO"),
         )
 
+    def _parse_datetime_value(
+        self, value: Optional[str]
+    ) -> Optional[datetime.datetime]:
+        if not value:
+            return None
+
+        normalized_value = value.replace("Z", "+00:00") if value.endswith("Z") else value
+        try:
+            parsed_date = datetime.datetime.fromisoformat(normalized_value)
+        except ValueError:
+            return None
+
+        if parsed_date.tzinfo is None:
+            try:
+                parsed_date = timezone.make_aware(
+                    parsed_date, timezone.get_default_timezone()
+                )
+            except Exception:
+                parsed_date = parsed_date.replace(tzinfo=datetime.timezone.utc)
+
+        return parsed_date
+
     def _obter_data_emissao(
         self, nfe_elemento: etree._Element
     ) -> Optional[datetime.datetime]:
@@ -88,12 +110,100 @@ class NFCeService:
         if not valores:
             return None
         data = valores[0]
-        if data.endswith("Z"):
-            data = data.replace("Z", "+00:00")
-        try:
-            return datetime.datetime.fromisoformat(data)
-        except ValueError:
-            return None
+        return self._parse_datetime_value(data)
+
+    def _extract_fiscal_data(
+        self, nfe_elemento: etree._Element, fallback_qrcode_url: Optional[str] = None
+    ) -> dict[str, Optional[object]]:
+        ns = {"nfe": NAMESPACE_NFE}
+
+        def _text(xpath_expr: str) -> Optional[str]:
+            result = nfe_elemento.xpath(xpath_expr, namespaces=ns)
+            if not result:
+                return None
+            value = result[0]
+            if isinstance(value, str):
+                return value.strip()
+            if hasattr(value, "text") and value.text is not None:
+                return value.text.strip()
+            return str(value).strip()
+
+        access_key = _text(".//nfe:protNFe/nfe:infProt/nfe:chNFe/text()")
+        if not access_key:
+            infnfe_ids = nfe_elemento.xpath(".//nfe:infNFe/@Id", namespaces=ns)
+            if infnfe_ids:
+                access_key = str(infnfe_ids[0])
+                if access_key.startswith("NFe"):
+                    access_key = access_key[3:]
+
+        access_key_url = _text(".//nfe:infNFeSupl/nfe:urlChave/text()")
+        qrcode_url = _text(".//nfe:infNFeSupl/nfe:qrCode/text()") or fallback_qrcode_url
+        nfce_number = _text(".//nfe:ide/nfe:nNF/text()")
+        nfce_series = _text(".//nfe:ide/nfe:serie/text()")
+        emission_datetime = self._parse_datetime_value(
+            _text(".//nfe:ide/nfe:dhEmi/text()")
+        )
+        authorization_protocol = _text(".//nfe:protNFe/nfe:infProt/nfe:nProt/text()")
+        authorization_datetime = self._parse_datetime_value(
+            _text(".//nfe:protNFe/nfe:infProt/nfe:dhRecbto/text()")
+        )
+        emitter_cnpj = _text(".//nfe:emit/nfe:CNPJ/text()")
+        emitter_uf = _text(".//nfe:emit/nfe:enderEmit/nfe:UF/text()")
+
+        return {
+            "access_key": access_key,
+            "access_key_url": access_key_url,
+            "qrcode_url": qrcode_url,
+            "nfce_number": nfce_number,
+            "nfce_series": nfce_series,
+            "emission_datetime": emission_datetime,
+            "authorization_protocol": authorization_protocol,
+            "authorization_datetime": authorization_datetime,
+            "emitter_cnpj": emitter_cnpj,
+            "emitter_uf": emitter_uf,
+        }
+
+    def _update_settlement_fiscal_data(
+        self,
+        settlement: TicketSettlement,
+        xml_element: etree._Element,
+        xml_string: str,
+        qrcode_url: Optional[str],
+    ) -> None:
+        fiscal_data = self._extract_fiscal_data(xml_element, qrcode_url)
+
+        settlement.nfce_xml = xml_string
+        settlement.nfce_qrcode_url = fiscal_data.get("qrcode_url") or qrcode_url
+        settlement.nfce_access_key = fiscal_data.get("access_key")
+        settlement.nfce_access_key_url = fiscal_data.get("access_key_url")
+        settlement.nfce_number = fiscal_data.get("nfce_number")
+        settlement.nfce_series = fiscal_data.get("nfce_series")
+        settlement.nfce_emission_datetime = fiscal_data.get("emission_datetime")
+        settlement.nfce_authorization_protocol = fiscal_data.get(
+            "authorization_protocol"
+        )
+        settlement.nfce_authorization_datetime = fiscal_data.get(
+            "authorization_datetime"
+        )
+        settlement.nfce_emitter_cnpj = fiscal_data.get("emitter_cnpj")
+        settlement.nfce_emitter_uf = fiscal_data.get("emitter_uf")
+
+        settlement.save(
+            update_fields=[
+                "nfce_xml",
+                "nfce_qrcode_url",
+                "nfce_access_key",
+                "nfce_access_key_url",
+                "nfce_number",
+                "nfce_series",
+                "nfce_emission_datetime",
+                "nfce_authorization_protocol",
+                "nfce_authorization_datetime",
+                "nfce_emitter_cnpj",
+                "nfce_emitter_uf",
+                "updated_at",
+            ]
+        )
 
     def _adicionar_produto_servico(
         self,
@@ -283,7 +393,6 @@ class NFCeService:
         xml_com_qrcode, qrcode_url = SerializacaoQrcode().gerar_qrcode(
             self.token, self.csc, xml, return_qr=True
         )
-        emission_datetime = self._obter_data_emissao(xml_com_qrcode)
         logger.info(
             "NFC-e %s pronta para envio (contingência=%s, qrcode_url=%s)",
             settlement.id,
@@ -315,16 +424,8 @@ class NFCeService:
                     "proc_xml": sync_envio[1],
                 }
 
-                settlement.nfce_xml = proc_xml_str
-                settlement.nfce_qrcode_url = qrcode_url
-                settlement.nfce_issued_at = emission_datetime
-                settlement.save(
-                    update_fields=[
-                        "nfce_xml",
-                        "nfce_qrcode_url",
-                        "nfce_issued_at",
-                        "updated_at",
-                    ]
+                self._update_settlement_fiscal_data(
+                    settlement, sync_envio[1], proc_xml_str, qrcode_url
                 )
                 logger.info("NFC-e %s autorizada em modo síncrono", settlement.id)
             # envio assíncrono retorna número do recibo e xml enviado
@@ -346,16 +447,8 @@ class NFCeService:
                     settlement.id,
                     async_envio[1],
                 )
-                settlement.nfce_xml = nota_fiscal_str
-                settlement.nfce_qrcode_url = qrcode_url
-                settlement.nfce_issued_at = emission_datetime
-                settlement.save(
-                    update_fields=[
-                        "nfce_xml",
-                        "nfce_qrcode_url",
-                        "nfce_issued_at",
-                        "updated_at",
-                    ]
+                self._update_settlement_fiscal_data(
+                    settlement, async_envio[2], nota_fiscal_str, qrcode_url
                 )
                 print("Envio assíncrono recebido com sucesso!")
                 print(f"Recibo: {async_envio[1]}")
