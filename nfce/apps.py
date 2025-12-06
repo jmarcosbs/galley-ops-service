@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class NfceConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'nfce'
+    default_auto_field = "django.db.models.BigAutoField"  # type: ignore
+    name = "nfce"

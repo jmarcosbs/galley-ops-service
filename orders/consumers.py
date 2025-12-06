@@ -12,12 +12,12 @@ class OpenTablesConsumer(AsyncJsonWebsocketConsumer):
     group_name = "open_tables"
 
     async def connect(self):
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.channel_layer.group_add(self.group_name, self.channel_name)  # type: ignore
         await self.accept()
         await self._send_open_tables()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)  # type: ignore
 
     async def receive_json(self, content, **kwargs):
         # Permite que o cliente solicite manualmente uma atualização.

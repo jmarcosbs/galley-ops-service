@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -48,7 +50,7 @@ class DishOrder(CommonTimedModel, CommonUUIDModel):
 
     @property
     def dish_or_custom_dish(self) -> Dish | CustomDish:
-        return self.dish or self.custom_dish
+        return cast(Dish | CustomDish, self.dish or self.custom_dish)
 
     class Meta:
         constraints = [
@@ -144,7 +146,7 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
     nfce_emitter_cnpj = models.CharField(max_length=20, blank=True, null=True)
     nfce_emitter_uf = models.CharField(max_length=2, blank=True, null=True)
 
-    canceled = models.BooleanField(default=False)
+    canceled = models.BooleanField(default=cast(Any, True))
     cancelation_xml = models.TextField(blank=True, null=True)
 
     @property
