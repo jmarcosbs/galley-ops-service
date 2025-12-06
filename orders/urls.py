@@ -4,6 +4,7 @@ from orders.views import (
     OpenTablesView,
     OrderView,
     TicketItemAddView,
+    TicketItemIncreaseView,
     TicketItemRemoveView,
     TicketSettlementView,
 )
@@ -19,6 +20,11 @@ urlpatterns = [
         "ticket-items/remove/",
         TicketItemRemoveView.as_view(),
         name="ticket-item-remove",
+    ),
+    path(
+        "ticket-items/increase/",
+        TicketItemIncreaseView.as_view(),
+        name="ticket-item-increase",
     ),
     path(
         "ticket-settlement/", TicketSettlementView.as_view(), name="ticket-settlement"

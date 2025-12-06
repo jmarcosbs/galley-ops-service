@@ -17,6 +17,7 @@ from orders.selectors import serialize_open_tables
 from orders.serializers import (
     OrderSerializer,
     TicketItemAddSerializer,
+    TicketItemIncreaseSerializer,
     TicketItemRemoveSerializer,
     TicketSettlementSerializer,
 )
@@ -257,6 +258,34 @@ class TicketItemRemoveView(APIView):
         )
 
 
+class TicketItemIncreaseView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        serializer = TicketItemIncreaseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        ticket = cast(Ticket, serializer.context.get("ticket"))
+        dish_order = cast(DishOrder, serializer.context.get("dish_order"))
+        quantity = serializer.validated_data["quantity"]
+
+        with cast(AbstractContextManager, transaction.atomic()):
+            dish_order.quantity += quantity
+            dish_order.save(update_fields=["quantity", "updated_at"])
+            ticket.refresh_status_from_orders()
+            transaction.on_commit(lambda: broadcast_open_tables())
+
+        return Response(
+            {
+                "detail": "Quantidade atualizada com sucesso.",
+                "current_quantity": dish_order.quantity,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class TicketSettlementView(APIView):
     """
     Cria um fechamento (total ou parcial) para um ticket.
@@ -343,6 +372,23 @@ class TicketSettlementView(APIView):
                 raise ValidationError("Falha na emissão da NFC-e; conta não foi fechada.")
 
         broadcast_open_tables()
+
+        try:
+            printer_service = PrintService()
+            success, printer_status, printer_response = printer_service.print_bill(settlement)
+            if not success:
+                logger.warning(
+                    "Falha ao enviar fechamento %s para impressora de contas (status=%s, response=%s)",
+                    settlement.id,
+                    printer_status,
+                    printer_response,
+                )
+        except Exception as exc:  # pragma: no cover
+            logger.exception(
+                "Erro ao imprimir fechamento %s na impressora de contas: %s",
+                settlement.id,
+                exc,
+            )
 
         return Response(status=status.HTTP_201_CREATED)
 
