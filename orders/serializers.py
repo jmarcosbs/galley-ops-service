@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from nfce.models import NCM
 from orders.models import DishOrder, Ticket, TicketStatus
@@ -173,12 +175,20 @@ class TicketSettlementItemSerializer(serializers.Serializer):
 class TicketSettlementSerializer(serializers.Serializer):
     ticket_number = serializers.IntegerField()
     additions_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=False
+        max_digits=10, decimal_places=2, required=False, default=Decimal("10")
     )
     discounts_percentage = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False
     )
     items = serializers.ListField(child=TicketSettlementItemSerializer())
+
+    def validate_additions_percentage(self, value: Decimal) -> Decimal:
+        mandatory_percentage = Decimal("10")
+        if value != mandatory_percentage:
+            raise serializers.ValidationError(
+                "O acréscimo obrigatório é de 10%."
+            )
+        return value
 
     def validate_ticket_number(self, value):
         ticket = Ticket.objects.filter(
