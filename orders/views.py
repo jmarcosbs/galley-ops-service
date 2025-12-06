@@ -327,7 +327,7 @@ class TicketSettlementView(APIView):
                 )
                 items_with_orders.append((item, dish_order))
 
-            additions_percentage = data.get("additions_percentage") or Decimal("0")
+            additions_percentage = data["additions_percentage"]
             discounts_percentage = data.get("discounts_percentage") or Decimal("0")
             
             # Printa os itens e valores
