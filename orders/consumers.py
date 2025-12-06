@@ -3,7 +3,7 @@ from __future__ import annotations
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
-from orders.selectors import serialize_open_tables
+from orders.selectors import serialize_open_tables, serialize_settlement_history
 
 
 class OpenTablesConsumer(AsyncJsonWebsocketConsumer):
@@ -25,14 +25,27 @@ class OpenTablesConsumer(AsyncJsonWebsocketConsumer):
             await self._send_open_tables()
 
     async def open_tables_updated(self, event):
-        await self.send_json({"event": "open_tables", "tables": event["tables"]})
+        await self.send_json(
+            {
+                "event": "open_tables",
+                "tables": event["tables"],
+                "history": event.get("history", []),
+            }
+        )
 
     async def _send_open_tables(self):
-        await self.send_json({
-            "event": "open_tables",
-            "tables": await self._get_open_tables(),
-        })
+        tables, history = await self._get_snapshot()
+        await self.send_json(
+            {
+                "event": "open_tables",
+                "tables": tables,
+                "history": history,
+            }
+        )
 
     @database_sync_to_async
-    def _get_open_tables(self):
-        return serialize_open_tables(include_items=True)
+    def _get_snapshot(self):
+        return (
+            serialize_open_tables(include_items=True),
+            serialize_settlement_history(),
+        )

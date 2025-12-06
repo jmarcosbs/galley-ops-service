@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from orders.models import Ticket, TicketStatus
+from orders.models import Ticket, TicketSettlement, TicketStatus
 
 
 def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
@@ -76,3 +76,28 @@ def serialize_open_tables(include_items: bool = False) -> list[dict[str, Any]]:
         serialized.append(ticket_data)
 
     return serialized
+
+
+def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
+    """Retorna os últimos fechamentos de conta."""
+
+    settlements = (
+        TicketSettlement.objects.select_related("ticket", "settled_by")
+        .order_by("-created_at")[:limit]
+    )
+
+    history: list[dict[str, Any]] = []
+    for settlement in settlements:
+        settled_by = settlement.settled_by.get_full_name() or settlement.settled_by.username
+        history.append(
+            {
+                "uuid": str(settlement.uuid),
+                "ticket_number": settlement.ticket.number,
+                "final_value": float(settlement.final_value),
+                "additions_value": float(settlement.additions_value),
+                "discounts_value": float(settlement.discounts_value),
+                "settled_by": settled_by,
+                "created_at": settlement.created_at.isoformat(),
+            }
+        )
+    return history

@@ -4,7 +4,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from orders.consumers import OpenTablesConsumer
-from orders.selectors import serialize_open_tables
+from orders.selectors import serialize_open_tables, serialize_settlement_history
 
 
 def broadcast_open_tables() -> None:
@@ -22,5 +22,6 @@ def broadcast_open_tables() -> None:
         {
             "type": "open_tables_updated",
             "tables": serialize_open_tables(include_items=True),
+            "history": serialize_settlement_history(),
         },
     )
