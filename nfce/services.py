@@ -102,7 +102,7 @@ class NFCeService:
         is_first_item: bool = False,
     ) -> NotaFiscalProduto:
 
-        dish = settlement_item.dish_order.dish
+        dish = settlement_item.dish_order.dish_or_custom_dish
         settlement = settlement_item.settlement
 
         discount_value: Decimal = Decimal("0")
