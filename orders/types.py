@@ -17,6 +17,7 @@ class SerializedOrderDataType(TypedDict):
     ticket: int
     dishes: list[SerializedDishOrderDataType]
     general_note: str | None
+    is_outside: bool
 
 
 class SerializedSettlementItemDataType(TypedDict):

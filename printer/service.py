@@ -59,7 +59,7 @@ class PrintService:
                 order_dishes=list(items),
                 order_note=str(order.note),
                 waiter=order.waiter.username,
-                is_outside=False,
+                is_outside=order.ticket.is_outside,
             )
 
         input_for_kitchen = _build_order_input("kitchen")
@@ -138,7 +138,7 @@ class PrintService:
             order_dishes=dishes,
             order_note="",
             waiter=settlement.settled_by.username,
-            is_outside=False,
+            is_outside=ticket.is_outside,
             subtotal=float(str(settlement.full_value)),
             service_fee=float(str(settlement.additions_value)),
             final_value=float(str(settlement.final_value)),

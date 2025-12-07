@@ -112,6 +112,7 @@ class OrderView(APIView):
         )
 
         ticket_number = serialized_order_data["ticket"]
+        is_outside = serialized_order_data.get("is_outside", False)
 
         order: Order | None = None
 
@@ -124,10 +125,17 @@ class OrderView(APIView):
 
                 if not ticket:
                     ticket = Ticket.objects.create(
-                        number=ticket_number, created_by=user, status=TicketStatus.OPEN
+                        number=ticket_number,
+                        created_by=user,
+                        status=TicketStatus.OPEN,
+                        is_outside=is_outside,
                     )
                 elif ticket.status == TicketStatus.CLOSED:
                     raise ValidationError("Este ticket já está fechado.")
+                else:
+                    if ticket.is_outside != is_outside:
+                        ticket.is_outside = is_outside
+                        ticket.save(update_fields=["is_outside", "updated_at"])
 
                 order = Order.objects.create(
                     ticket=ticket,
@@ -379,6 +387,8 @@ class TicketSettlementView(APIView):
             helper = OrderHelper()
             try:
                 response = helper.send_nfce(settlement)
+            except ValidationError:
+                raise
             except Exception:
                 logger.exception(
                     "Erro ao emitir NFC-e para fechamento %s", settlement.id
