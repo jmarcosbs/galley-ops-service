@@ -58,6 +58,7 @@ class OrderSerializer(serializers.Serializer):
     general_note = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
+    is_outside = serializers.BooleanField(required=False, default=False)
 
 
 class TicketItemAddSerializer(DishOrderSerializer):

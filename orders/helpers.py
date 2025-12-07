@@ -8,6 +8,7 @@ from nfce.types import (
     ServiceStatusResponseType,
 )
 from orders.models import TicketSettlement
+from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,7 @@ class OrderHelper:
 
     def send_nfce(self, settlement: TicketSettlement) -> Optional[SendNFCEResponse]:
         """
-        Emite NFC-e para um fechamento, em modo normal quando o serviço está
-        disponível ou em contingência quando indisponível.
+        Emite NFC-e para um fechamento quando o serviço da SEFAZ está disponível.
         """
         if not self.nfce_service:
             logger.info("NFCE service não configurado; pulando envio.")
@@ -45,26 +45,25 @@ class OrderHelper:
 
         logger.info("Iniciando emissão NFC-e para fechamento %s", settlement.id)
         is_available, status = self._check_service()
-        is_contingency = not is_available
-        contingency_message = None
-        if is_contingency:
+        if not is_available:
+            status_code = status.get("service_status") if status else None
             status_message = status.get("service_status_message") if status else ""
-            contingency_message = (
-                status_message or "Serviço da SEFAZ indisponível - contingência"
-            )
-            logger.warning(
-                "Emitindo em contingência para fechamento %s: status=%s msg=%s",
+            logger.error(
+                "Serviço da SEFAZ indisponível para fechamento %s: status=%s msg=%s",
                 settlement.id,
-                status.get("service_status") if status else None,
+                status_code,
                 status_message,
             )
+            raise ValidationError(
+                status_message or "Serviço da SEFAZ indisponível. Tente novamente."
+            )
 
-        nfce = self.nfce_service.create_nfce(settlement, is_contingency=is_contingency)
+        nfce = self.nfce_service.create_nfce(settlement, is_contingency=False)
         response = self.nfce_service.send_nfce(
             nfce,
             settlement,
-            is_contingency=is_contingency,
-            contingency_message=contingency_message,
+            is_contingency=False,
+            contingency_message=None,
         )
         logger.info(
             "Finalizada emissão NFC-e para fechamento %s: sucesso=%s",

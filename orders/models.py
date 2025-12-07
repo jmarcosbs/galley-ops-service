@@ -86,6 +86,7 @@ class Ticket(CommonUUIDModel, CommonTimedModel):
     number = models.IntegerField()
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     status = models.CharField(max_length=255, choices=TicketStatus.choices)
+    is_outside = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Ticket #{self.number} ({self.status})"

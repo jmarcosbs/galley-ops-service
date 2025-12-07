@@ -91,6 +91,7 @@ def serialize_open_tables(include_items: bool = False) -> list[dict[str, Any]]:
             "uuid": str(ticket.uuid),
             "number": ticket.number,
             "status": ticket.status,
+            "is_outside": ticket.is_outside,
             "created_at": ticket.created_at.isoformat(),
             "updated_at": ticket.updated_at.isoformat(),
             "total": _ticket_total(items) if include_items else None,
