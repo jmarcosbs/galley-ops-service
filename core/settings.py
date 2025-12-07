@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "menu",
     "common",
+    "dashboard",
     "orders.apps.OrdersConfig",
     "nfce",
 ]
