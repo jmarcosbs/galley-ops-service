@@ -4,6 +4,23 @@ from typing import Any
 
 from orders.models import Ticket, TicketSettlement, TicketStatus
 
+CANCELABLE_SETTLEMENT_LIMIT = 2
+
+
+def get_cancelable_settlement_uuids(
+    limit: int = CANCELABLE_SETTLEMENT_LIMIT,
+) -> set[str]:
+    """
+    Retorna os UUIDs dos fechamentos mais recentes que ainda podem ser cancelados.
+    """
+
+    uuids = (
+        TicketSettlement.objects.filter(canceled=False)
+        .order_by("-created_at")
+        .values_list("uuid", flat=True)[:limit]
+    )
+    return {str(uuid) for uuid in uuids}
+
 
 def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
     """Itens restantes (ainda não liquidados) agrupados por ticket."""
@@ -87,6 +104,7 @@ def serialize_open_tables(include_items: bool = False) -> list[dict[str, Any]]:
 def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
     """Retorna os últimos fechamentos de conta."""
 
+    cancelable_settlements = get_cancelable_settlement_uuids()
     settlements = (
         TicketSettlement.objects.select_related("ticket", "settled_by")
         .order_by("-created_at")[:limit]
@@ -104,6 +122,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
                 "discounts_value": float(settlement.discounts_value),
                 "settled_by": settled_by,
                 "created_at": settlement.created_at.isoformat(),
+                "can_cancel": str(settlement.uuid) in cancelable_settlements,
             }
         )
     return history

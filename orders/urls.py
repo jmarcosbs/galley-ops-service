@@ -6,6 +6,7 @@ from orders.views import (
     TicketItemAddView,
     TicketItemIncreaseView,
     TicketItemRemoveView,
+    TicketSettlementCancelView,
     TicketSettlementReprintView,
     TicketSettlementView,
 )
@@ -34,6 +35,11 @@ urlpatterns = [
         "ticket-settlement/<uuid:settlement_uuid>/reprint/",
         TicketSettlementReprintView.as_view(),
         name="ticket-settlement-reprint",
+    ),
+    path(
+        "ticket-settlement/cancel/",
+        TicketSettlementCancelView.as_view(),
+        name="ticket-settlement-cancel",
     ),
     path("open-tables/", OpenTablesView.as_view(), name="open-tables"),
 ]

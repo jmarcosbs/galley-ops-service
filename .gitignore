@@ -1,3 +1,4 @@
 *.pfx
 .env
 *.pyc
+.venv
