@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from nfce.models import NCM
 from orders.models import DishOrder, Ticket, TicketSettlement, TicketStatus
+from orders.selectors import get_cancelable_settlement_uuids
 
 
 class SideDishSerializer(serializers.Serializer):
@@ -231,6 +232,12 @@ class TicketSettlementCancelSerializer(serializers.Serializer):
         missing_fields = [field for field in required_fields if not getattr(settlement, field)]
         if missing_fields:
             raise serializers.ValidationError("Dados fiscais ausentes para cancelamento.")
+
+        cancelable_settlements = get_cancelable_settlement_uuids()
+        if str(settlement.uuid) not in cancelable_settlements:
+            raise serializers.ValidationError(
+                "Este fechamento não está mais elegível para cancelamento."
+            )
 
         self.context["settlement"] = settlement
         return value

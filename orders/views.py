@@ -472,6 +472,11 @@ class TicketSettlementCancelView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request):
+        if not request.user.is_superuser:
+            raise ValidationError(
+                "Apenas superusuários podem cancelar fechamentos."
+            )
+
         serializer = TicketSettlementCancelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         settlement = cast(TicketSettlement, serializer.context.get("settlement"))
