@@ -40,3 +40,8 @@ deploy:
 	$(COMPOSE) --env-file $(ENV_FILE) \
 		-f $(PROD_COMPOSE_FILE) \
 		up -d --build
+
+run:
+	$(COMPOSE) --env-file $(ENV_FILE) \
+		-f $(PROD_COMPOSE_FILE) \
+		up -d
