@@ -30,6 +30,7 @@ CSRF_TRUSTED_ORIGINS = [
 CORS_ALLOWED_ORIGINS = [
     "https://service.restaurantemarinheiros.com.br",
     "https://pedidos.restaurantemarinheiros.com.br",
+    "http://localhost:3000",
 ]
 
 # Application definition
