@@ -24,12 +24,12 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "https://service.restaurantemarinheiros.com.br",
+    "https://pedidos.restaurantemarinheiros.com.br",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = [
-    "service.restaurantemarinheiros.com.br",
-    "127.0.0.1",
-    "localhost",
+CORS_ALLOWED_ORIGINS = [
+    "https://service.restaurantemarinheiros.com.br",
+    "https://pedidos.restaurantemarinheiros.com.br",
 ]
 
 # Application definition
