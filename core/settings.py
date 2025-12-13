@@ -16,8 +16,21 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
-# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "service.restaurantemarinheiros.com.br",
+    "127.0.0.1",
+    "localhost",
+]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://service.restaurantemarinheiros.com.br",
+]
+
+CORS_ALLOW_ALL_ORIGINS = [
+    "service.restaurantemarinheiros.com.br",
+    "127.0.0.1",
+    "localhost",
+]
 
 # Application definition
 
@@ -49,8 +62,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-
-CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = "core.urls"
 
@@ -131,14 +142,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "pt-br"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "America/Sao_Paulo"
 
 USE_I18N = True
 
 USE_TZ = True
 
+USE_X_FORWARDED_HOST = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
