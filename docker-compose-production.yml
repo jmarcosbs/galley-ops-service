@@ -32,6 +32,8 @@ services:
     restart: unless-stopped
     depends_on:
       - redis
+    volumes:
+      - ./staticfiles:/app/staticfiles
 
   asgi:
     build:
@@ -52,6 +54,8 @@ services:
     restart: unless-stopped
     depends_on:
       - redis
+    volumes:
+      - ./staticfiles:/app/staticfiles
 
   redis:
     image: redis:7
