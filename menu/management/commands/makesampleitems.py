@@ -843,6 +843,7 @@ class Command(BaseCommand):
                             "department": dept,
                             "price": item_price,
                             "is_available": True,
+                            "show_on_public_menu": True,
                         },
                     )
                     if dish_created:
@@ -855,6 +856,8 @@ class Command(BaseCommand):
                             dish.price = item_price
                         if not dish.is_available:
                             dish.is_available = True
+                        if not dish.show_on_public_menu:
+                            dish.show_on_public_menu = True
                         dish.save(
                             update_fields=[
                                 "description",
@@ -862,6 +865,7 @@ class Command(BaseCommand):
                                 "department",
                                 "price",
                                 "is_available",
+                                "show_on_public_menu",
                                 "updated_at",
                             ]
                         )

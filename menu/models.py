@@ -85,6 +85,11 @@ class Dish(MenuBaseModel, CommonPriceModel, CommonAvailableModel):
     department = models.CharField(
         "departamento", max_length=255, choices=DepartmentChoices.choices
     )
+    show_on_public_menu = models.BooleanField(
+        "mostrar no cardápio público",
+        default=False,
+        help_text="Controla se o item aparece na landing page pública.",
+    )
     side_dish_options = models.ManyToManyField(
         SideDishOption,
         verbose_name="opções de acompanhamento",
@@ -99,6 +104,7 @@ class Dish(MenuBaseModel, CommonPriceModel, CommonAvailableModel):
 
     def __str__(self):
         return self.name
+
 
 class CustomDish(MenuBaseModel, CommonPriceModel):
     name = models.CharField("nome", max_length=255)
