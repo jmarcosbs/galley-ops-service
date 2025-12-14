@@ -14,12 +14,21 @@ class MenuViewSet(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        public_only_param = request.query_params.get("public_only")
+        filter_public_only = (
+            isinstance(public_only_param, str)
+            and public_only_param.lower() in {"1", "true", "t", "yes"}
+        )
+
         options_qs = SideDishOption.objects.select_related(
             "default_side_dish"
         ).prefetch_related("side_dishes")
         dishes_qs = Dish.objects.prefetch_related(
             Prefetch("side_dish_options", queryset=options_qs)
         )
+        if filter_public_only:
+            dishes_qs = dishes_qs.filter(show_on_public_menu=True)
+
         categories = Category.objects.prefetch_related(
             Prefetch("dish_set", queryset=dishes_qs)
         )
@@ -32,6 +41,7 @@ class MenuViewSet(APIView):
                     "name": dish.name,
                     "description": dish.description,
                     "is_available": dish.is_available,
+                    "show_on_public_menu": dish.show_on_public_menu,
                     "price": dish.price,
                     "department": dish.department,
                     "side_dish_options": [
@@ -55,6 +65,8 @@ class MenuViewSet(APIView):
                 }
                 for dish in category.dish_set.all()
             ]
+            if filter_public_only and not items:
+                continue
             menu.append(
                 {
                     "category": {

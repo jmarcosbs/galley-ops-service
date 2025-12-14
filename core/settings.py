@@ -31,6 +31,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://service.restaurantemarinheiros.com.br",
     "https://pedidos.restaurantemarinheiros.com.br",
     "http://localhost:3000",
+    "http://localhost:4321",
 ]
 
 # Application definition

@@ -53,9 +53,10 @@ class DishAdmin(BaseMenuAdmin):
         "department",
         "price",
         "is_available",
+        "show_on_public_menu",
         "created_at",
     )
-    list_filter = ("category", "department", "is_available")
+    list_filter = ("category", "department", "is_available", "show_on_public_menu")
     list_select_related = ("category",)
     search_fields = ("name", "category__name", "ncm__code")
     autocomplete_fields = ("ncm",)
