@@ -25,9 +25,11 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://service.restaurantemarinheiros.com.br",
     "https://pedidos.restaurantemarinheiros.com.br",
+    "https://restaurantemarinheiros.com.br",
 ]
 
 CORS_ALLOWED_ORIGINS = [
+    "https://restaurantemarinheiros.com.br",
     "https://service.restaurantemarinheiros.com.br",
     "https://pedidos.restaurantemarinheiros.com.br",
     "http://localhost:3000",
