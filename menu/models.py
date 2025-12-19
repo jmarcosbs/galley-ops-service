@@ -1,11 +1,31 @@
-from common.models import (
-    CommonTimedModel,
-    CommonUUIDModel,
-    CommonPriceModel,
-    CommonAvailableModel,
-)
+from django.conf import settings
 from django.db import models
 from nfce.models import NCM
+
+from common.models import (
+    CommonAvailableModel,
+    CommonPriceModel,
+    CommonTimedModel,
+    CommonUUIDModel,
+)
+
+
+LANGUAGE_CHOICES = (
+    ("pt-BR", "Português (Brasil)"),
+    ("en-US", "English"),
+    ("es-ES", "Espanhol"),
+)
+SUPPORTED_LANGUAGE_CODES = {code for code, _ in LANGUAGE_CHOICES}
+DEFAULT_LANGUAGE_CODE = (
+    settings.LANGUAGE_CODE
+    if settings.LANGUAGE_CODE in SUPPORTED_LANGUAGE_CODES
+    else "pt-BR"
+)
+LANGUAGE_CODE_MAX_LENGTH = (
+    max(len(code) for code in SUPPORTED_LANGUAGE_CODES)
+    if SUPPORTED_LANGUAGE_CODES
+    else 5
+)
 
 
 class MenuBaseModel(CommonTimedModel, CommonUUIDModel):
@@ -23,6 +43,32 @@ class Category(MenuBaseModel):
 
     def __str__(self):
         return self.name
+
+
+class CategoryTranslation(MenuBaseModel):
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="translations",
+        verbose_name="categoria",
+    )
+    language = models.CharField(
+        "idioma", max_length=LANGUAGE_CODE_MAX_LENGTH, choices=LANGUAGE_CHOICES
+    )
+    name = models.CharField("nome", max_length=255)
+
+    class Meta:
+        verbose_name = "Tradução de Categoria"
+        verbose_name_plural = "Traduções de Categoria"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("category", "language"),
+                name="unique_category_language_translation",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.category} ({self.language})"
 
 
 class SideDish(MenuBaseModel, CommonAvailableModel):
@@ -104,6 +150,33 @@ class Dish(MenuBaseModel, CommonPriceModel, CommonAvailableModel):
 
     def __str__(self):
         return self.name
+
+
+class DishTranslation(MenuBaseModel):
+    dish = models.ForeignKey(
+        "Dish",
+        on_delete=models.CASCADE,
+        related_name="translations",
+        verbose_name="item do cardápio",
+    )
+    language = models.CharField(
+        "idioma", max_length=LANGUAGE_CODE_MAX_LENGTH, choices=LANGUAGE_CHOICES
+    )
+    name = models.CharField("nome", max_length=255)
+    description = models.TextField("descrição", blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Tradução de Item do Cardápio"
+        verbose_name_plural = "Traduções de Item do Cardápio"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("dish", "language"),
+                name="unique_dish_language_translation",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.dish} ({self.language})"
 
 
 class CustomDish(MenuBaseModel, CommonPriceModel):

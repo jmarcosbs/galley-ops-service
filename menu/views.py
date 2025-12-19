@@ -3,7 +3,15 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Category, Dish, SideDishOption
+from .models import (
+    Category,
+    CategoryTranslation,
+    DEFAULT_LANGUAGE_CODE,
+    Dish,
+    DishTranslation,
+    SideDishOption,
+    SUPPORTED_LANGUAGE_CODES,
+)
 
 
 class MenuViewSet(APIView):
@@ -20,17 +28,42 @@ class MenuViewSet(APIView):
             and public_only_param.lower() in {"1", "true", "t", "yes"}
         )
 
+        language_code = request.query_params.get("lang") or DEFAULT_LANGUAGE_CODE
+        if language_code not in SUPPORTED_LANGUAGE_CODES:
+            language_code = DEFAULT_LANGUAGE_CODE
+
+        def translated_attr(obj, attr):
+            translations = getattr(obj, "requested_translations", None)
+            if translations:
+                translated_value = getattr(translations[0], attr, None)
+                if translated_value is not None:
+                    return translated_value
+            return getattr(obj, attr)
+
+        category_translations_prefetch = Prefetch(
+            "translations",
+            queryset=CategoryTranslation.objects.filter(language=language_code),
+            to_attr="requested_translations",
+        )
+        dish_translations_prefetch = Prefetch(
+            "translations",
+            queryset=DishTranslation.objects.filter(language=language_code),
+            to_attr="requested_translations",
+        )
+
         options_qs = SideDishOption.objects.select_related(
             "default_side_dish"
         ).prefetch_related("side_dishes")
         dishes_qs = Dish.objects.prefetch_related(
-            Prefetch("side_dish_options", queryset=options_qs)
+            dish_translations_prefetch,
+            Prefetch("side_dish_options", queryset=options_qs),
         )
         if filter_public_only:
             dishes_qs = dishes_qs.filter(show_on_public_menu=True)
 
         categories = Category.objects.prefetch_related(
-            Prefetch("dish_set", queryset=dishes_qs)
+            category_translations_prefetch,
+            Prefetch("dish_set", queryset=dishes_qs),
         )
 
         menu = []
@@ -38,8 +71,8 @@ class MenuViewSet(APIView):
             items = [
                 {
                     "uuid": dish.uuid,
-                    "name": dish.name,
-                    "description": dish.description,
+                    "name": translated_attr(dish, "name"),
+                    "description": translated_attr(dish, "description"),
                     "is_available": dish.is_available,
                     "show_on_public_menu": dish.show_on_public_menu,
                     "price": dish.price,
@@ -71,7 +104,7 @@ class MenuViewSet(APIView):
                 {
                     "category": {
                         "uuid": category.uuid,
-                        "name": category.name,
+                        "name": translated_attr(category, "name"),
                         "color": category.color,
                     },
                     "items": items,
