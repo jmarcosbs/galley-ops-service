@@ -25,7 +25,7 @@ variable "zone" {
 }
 
 variable "instance_name" {
-  description = "Nome da VM já existente"
+  description = "Nome daa VM já existente"
   type        = string
   default     = "marinheiros"
 }
