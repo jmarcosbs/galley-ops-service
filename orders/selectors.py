@@ -41,6 +41,7 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
         "dish_orders__custom_dish__name",
         "dish_orders__custom_dish__price",
         "dish_orders__custom_dish__department",
+        "dish_orders__created_at",
     ):
         (
             dish_order_uuid,
@@ -52,10 +53,12 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
             custom_name,
             custom_price,
             custom_department,
+            dish_created_at,
         ) = dish_order
         name = dish_name or custom_name
         price = dish_price if dish_price is not None else custom_price
         department = dish_department or custom_department
+        created_at = dish_created_at.isoformat() if dish_created_at else None
         items.append(
             {
                 "uuid": str(dish_order_uuid),
@@ -64,6 +67,7 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
                 "note": note,
                 "price": float(price),
                 "department": department,
+                "created_at": created_at,
             }
         )
     return items
@@ -124,6 +128,8 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
                 "settled_by": settled_by,
                 "created_at": settlement.created_at.isoformat(),
                 "can_cancel": str(settlement.uuid) in cancelable_settlements,
+                "canceled": settlement.canceled,
+                "is_partial": settlement.ticket.status == TicketStatus.PARTIALLY_CLOSED,
             }
         )
     return history
