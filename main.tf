@@ -30,11 +30,6 @@ variable "instance_name" {
   default     = "marinheiros"
 }
 
-variable "firewall_name" {
-  description = "Nome da regra de firewall que já existe"
-  type        = string
-  default     = "marinheiros-allow"
-}
 
 provider "google" {
   project = var.project_id
@@ -43,7 +38,7 @@ provider "google" {
 }
 
 # Usa apenas data sources para ler a infraestrutura atual
-# Assim o terraform não tenta recriar ou alterar a VM ou firewall
+# Assim o terraform não tenta recriar ou alterar a VM
 
 data "google_compute_instance" "marinheiros" {
   project = var.project_id
@@ -51,17 +46,7 @@ data "google_compute_instance" "marinheiros" {
   name    = var.instance_name
 }
 
-data "google_compute_firewall" "marinheiros" {
-  project = var.project_id
-  name    = var.firewall_name
-}
-
 output "instance_ip" {
   description = "IP público atual da VM"
   value       = data.google_compute_instance.marinheiros.network_interface[0].access_config[0].nat_ip
-}
-
-output "firewall_allowed_ports" {
-  description = "Lista de portas liberadas na regra de firewall"
-  value       = [for rule in data.google_compute_firewall.marinheiros.allow : rule.ports]
 }
