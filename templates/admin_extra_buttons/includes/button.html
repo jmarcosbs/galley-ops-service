@@ -1,9 +1,13 @@
 {% load static %}
 {% with attrs=button.html_attrs %}
 {% with class_value=attrs.class|default_if_none:"" %}
-<a href="{{ button.url }}{% if is_popup %}&_popup=1{% endif %}" class="{{ class_value }} btn-block btn-sm" {% for name,
-    value in attrs.items %} {% if name !="class" and value is not False %} {{ name }}{% if value is not True
-    %}="{{ value|stringformat:'s' }}" {% endif %} {% endif %} {% endfor %}>
+<a href="{{ button.url }}{% if is_popup %}&_popup=1{% endif %}"
+   class="{{ class_value }} btn-block btn-sm"
+   {% for name, value in attrs.items %}
+       {% if name != "class" and value is not False %}
+           {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}
+       {% endif %}
+   {% endfor %}>
     {% if button.icon %}<i class="{{ button.icon }}"></i>&nbsp;{% endif %}{{ button.label }}
 </a>
 {% endwith %}

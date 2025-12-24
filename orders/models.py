@@ -101,10 +101,11 @@ class Ticket(CommonUUIDModel, CommonTimedModel):
         has_pending_items = DishOrder.objects.filter(
             order__in=self.orders.all(), quantity__gt=0
         ).exists()
+        has_active_settlements = self.settlements.filter(canceled=False).exists()
 
         if not has_orders or not has_pending_items:
             new_status = TicketStatus.CLOSED
-        elif self.settlements.exists():
+        elif has_active_settlements:
             new_status = TicketStatus.PARTIALLY_CLOSED
         else:
             new_status = TicketStatus.OPEN
