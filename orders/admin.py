@@ -1,4 +1,10 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from lxml import etree
+from pynfe.utils.flags import NAMESPACE_NFE
+from admin_extra_buttons.decorators import button
+from admin_extra_buttons.mixins import ExtraButtonsMixin
+
+from nfce.services import NFCeService
 
 from .models import (
     DishOrder,
@@ -87,7 +93,7 @@ class TicketAdmin(BaseOrderAdmin):
 
 
 @admin.register(TicketSettlement)
-class TicketSettlementAdmin(BaseOrderAdmin):
+class TicketSettlementAdmin(ExtraButtonsMixin, BaseOrderAdmin):
     list_display = (
         "ticket",
         "final_value",
@@ -102,7 +108,88 @@ class TicketSettlementAdmin(BaseOrderAdmin):
     search_fields = ("ticket__number", "uuid")
     autocomplete_fields = ("ticket", "settled_by")
     inlines = (TicketSettlementItemInline,)
-    readonly_fields = BaseOrderAdmin.readonly_fields + ("total_taxes",)
+    readonly_fields = BaseOrderAdmin.readonly_fields + (
+        "total_taxes",
+        "nfce_last_status_code",
+        "nfce_last_status_message",
+        "nfce_last_consult_payload",
+    )
+    actions = ("consult_nfce",)
+
+    @staticmethod
+    def _extract_status_from_xml(payload: str) -> tuple[str, str]:
+        try:
+            root = etree.fromstring(
+                payload.encode("utf-8") if isinstance(payload, str) else payload
+            )
+            ns = {"nfe": NAMESPACE_NFE}
+            status_code = root.xpath("string(//nfe:cStat)", namespaces=ns)
+            status_message = root.xpath("string(//nfe:xMotivo)", namespaces=ns)
+            return status_code or "", status_message or ""
+        except Exception:
+            return "", ""
+
+    def _consult_and_store(self, request, queryset):
+        service = NFCeService()
+        updated = 0
+
+        for settlement in queryset:
+            if not settlement.nfce_access_key:
+                self.message_user(
+                    request,
+                    f"{settlement} sem chave de acesso NFC-e; consulta ignorada.",
+                    messages.WARNING,
+                )
+                continue
+
+            response = service.consult_nfe(settlement.nfce_access_key)
+            payload_str = (
+                response.decode("utf-8", errors="ignore")
+                if isinstance(response, (bytes, bytearray))
+                else str(response)
+            )
+            status_code, status_message = self._extract_status_from_xml(payload_str)
+
+            settlement.nfce_last_consult_payload = payload_str
+            settlement.nfce_last_status_code = status_code
+            settlement.nfce_last_status_message = status_message
+            settlement.save(
+                update_fields=[
+                    "nfce_last_consult_payload",
+                    "nfce_last_status_code",
+                    "nfce_last_status_message",
+                    "updated_at",
+                ]
+            )
+            updated += 1
+
+        if updated:
+            self.message_user(
+                request, f"{updated} NFC-e consultada(s) com sucesso.", messages.SUCCESS
+            )
+        return updated
+
+    def consult_nfce(self, request, queryset):
+        self._consult_and_store(request, queryset)
+
+    consult_nfce.short_description = "Consultar NFC-e na SEFAZ"
+
+    @button(
+        change_form=True,
+        html_attrs={"class": "btn btn-success"},
+        label="Consultar NFC-e",
+    )
+    def consult_nfce_button(self, request, pk):
+        settlement = self.get_object(request, pk)
+        if not settlement:
+            self.message_user(request, "Liquidação não encontrada.", messages.ERROR)
+            return
+        if not settlement.nfce_access_key:
+            self.message_user(
+                request, "Liquidação sem chave NFC-e; consulta ignorada.", messages.ERROR
+            )
+            return
+        self._consult_and_store(request, [settlement])
 
 
 @admin.register(TicketSettlementItem)
