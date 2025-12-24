@@ -1,6 +1,11 @@
 from decimal import Decimal
+from typing import Any
 
-from django.db import migrations
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from menu.models import Category, Dish
+from nfce.models import NCM
 
 
 CATEGORY_DATA = [
@@ -427,69 +432,111 @@ CATEGORY_DATA = [
 ]
 
 
-def _get_ncm(cache, model, code: str):
+def _get_ncm(cache: dict[str, Any], code: str) -> Any:
     normalized = (code or "").replace(" ", "").replace(".", "")
     if normalized in cache:
         return cache[normalized]
     try:
-        cache[normalized] = model.objects.get(code=normalized)
-    except model.DoesNotExist as exc:  # type: ignore[attr-defined]
-        raise ValueError(f"NCM {code} não encontrado para carga do cardápio.") from exc
+        cache[normalized] = NCM.objects.get(code=normalized)
+    except NCM.DoesNotExist as exc:
+        raise CommandError(
+            f"NCM {code} não encontrado para carga do cardápio."
+        ) from exc
     return cache[normalized]
 
 
-def load_menu_items(apps, schema_editor):
-    Category = apps.get_model("menu", "Category")
-    Dish = apps.get_model("menu", "Dish")
-    NCM = apps.get_model("nfce", "NCM")
-
-    ncm_cache: dict[str, object] = {}
+def load_menu_items() -> tuple[int, int, int, int]:
+    created_categories = updated_categories = 0
+    created_dishes = updated_dishes = 0
+    ncm_cache: dict[str, Any] = {}
 
     for category_data in CATEGORY_DATA:
-        category, _ = Category.objects.update_or_create(
+        category, cat_created = Category.objects.update_or_create(
             name=category_data["name"],
             defaults={"color": category_data["color"]},
         )
+        if cat_created:
+            created_categories += 1
+        else:
+            updated_categories += 1
+
         for item in category_data["items"]:
-            ncm = _get_ncm(ncm_cache, NCM, item["ncm"])
-            price = Decimal(item["price"])
+            ncm = _get_ncm(ncm_cache, item["ncm"])
             defaults = {
                 "description": item["description"],
-                "price": price,
+                "price": Decimal(item["price"]),
                 "ncm": ncm,
                 "department": category_data["department"],
                 "show_on_public_menu": True,
                 "is_available": True,
             }
-            Dish.objects.update_or_create(
+            _, dish_created = Dish.objects.update_or_create(
                 category=category,
                 name=item["name"],
                 defaults=defaults,
             )
+            if dish_created:
+                created_dishes += 1
+            else:
+                updated_dishes += 1
+
+    return created_categories, updated_categories, created_dishes, updated_dishes
 
 
-def remove_menu_items(apps, schema_editor):
-    Category = apps.get_model("menu", "Category")
-    Dish = apps.get_model("menu", "Dish")
+def remove_menu_items() -> tuple[int, int]:
+    removed_dishes = removed_categories = 0
 
     for category_data in CATEGORY_DATA:
         try:
             category = Category.objects.get(name=category_data["name"])
         except Category.DoesNotExist:
             continue
+
         for item in category_data["items"]:
-            Dish.objects.filter(category=category, name=item["name"]).delete()
+            removed_dishes += Dish.objects.filter(
+                category=category, name=item["name"]
+            ).delete()[0]
+
         if not category.dish_set.exists():
             category.delete()
+            removed_categories += 1
+
+    return removed_categories, removed_dishes
 
 
-class Migration(migrations.Migration):
+class Command(BaseCommand):
+    help = "Carrega o cardápio base vindo do menu A4."
 
-    dependencies = [
-        ("menu", "0008_categorytranslation_dishtranslation"),
-        ("nfce", "0002_load_ncm_data"),
-    ]
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--remove",
+            action="store_true",
+            help="Remove itens previamente carregados em vez de recriá-los.",
+        )
 
-    operations = [
-        migrations.RunPython(load_menu_items, reverse_code=remove_menu_items),
-    ]
+    @transaction.atomic
+    def handle(self, *args, **options):
+        if options["remove"]:
+            removed_categories, removed_dishes = remove_menu_items()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Removidos {removed_dishes} pratos e {removed_categories} categorias."
+                )
+            )
+            return
+
+        (
+            created_categories,
+            updated_categories,
+            created_dishes,
+            updated_dishes,
+        ) = load_menu_items()
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Cardápio carregado: "
+                f"{created_categories} categorias criadas, "
+                f"{updated_categories} categorias atualizadas, "
+                f"{created_dishes} pratos criados e "
+                f"{updated_dishes} pratos atualizados."
+            )
+        )

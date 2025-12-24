@@ -1,4 +1,7 @@
-from django.db import migrations
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from menu.models import Category, CategoryTranslation, Dish, DishTranslation
 
 
 CATEGORY_TRANSLATIONS = {
@@ -760,11 +763,9 @@ DISH_TRANSLATIONS = [
 ]
 
 
-def load_translations(apps, schema_editor):
-    Category = apps.get_model("menu", "Category")
-    CategoryTranslation = apps.get_model("menu", "CategoryTranslation")
-    Dish = apps.get_model("menu", "Dish")
-    DishTranslation = apps.get_model("menu", "DishTranslation")
+def load_translations() -> tuple[int, int, int, int]:
+    created_category_translations = updated_category_translations = 0
+    created_dish_translations = updated_dish_translations = 0
 
     for category_name, translations in CATEGORY_TRANSLATIONS.items():
         try:
@@ -772,11 +773,15 @@ def load_translations(apps, schema_editor):
         except Category.DoesNotExist:
             continue
         for language, translated_name in translations.items():
-            CategoryTranslation.objects.update_or_create(
+            _, created = CategoryTranslation.objects.update_or_create(
                 category=category,
                 language=language,
                 defaults={"name": translated_name},
             )
+            if created:
+                created_category_translations += 1
+            else:
+                updated_category_translations += 1
 
     for dish_data in DISH_TRANSLATIONS:
         try:
@@ -793,7 +798,7 @@ def load_translations(apps, schema_editor):
                 if translated_name
                 else original_name
             )
-            DishTranslation.objects.update_or_create(
+            _, created = DishTranslation.objects.update_or_create(
                 dish=dish,
                 language=language,
                 defaults={
@@ -801,32 +806,69 @@ def load_translations(apps, schema_editor):
                     "description": translated["description"],
                 },
             )
+            if created:
+                created_dish_translations += 1
+            else:
+                updated_dish_translations += 1
+
+    return (
+        created_category_translations,
+        updated_category_translations,
+        created_dish_translations,
+        updated_dish_translations,
+    )
 
 
-def remove_translations(apps, schema_editor):
-    CategoryTranslation = apps.get_model("menu", "CategoryTranslation")
-    Dish = apps.get_model("menu", "Dish")
-    DishTranslation = apps.get_model("menu", "DishTranslation")
+def remove_translations() -> tuple[int, int]:
+    removed_category_translations = removed_dish_translations = 0
 
     for dish_data in DISH_TRANSLATIONS:
-        DishTranslation.objects.filter(
+        removed_dish_translations += DishTranslation.objects.filter(
             dish__name=dish_data["dish"],
             dish__category__name=dish_data["category"],
             language__in=dish_data["translations"].keys(),
-        ).delete()
+        ).delete()[0]
 
     for category_name, languages in CATEGORY_TRANSLATIONS.items():
-        CategoryTranslation.objects.filter(
+        removed_category_translations += CategoryTranslation.objects.filter(
             category__name=category_name, language__in=languages.keys()
-        ).delete()
+        ).delete()[0]
+
+    return removed_category_translations, removed_dish_translations
 
 
-class Migration(migrations.Migration):
+class Command(BaseCommand):
+    help = "Carrega traduções para categorias e pratos do cardápio."
 
-    dependencies = [
-        ("menu", "0009_load_menu_from_a4_menu"),
-    ]
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--remove",
+            action="store_true",
+            help="Remove as traduções pré-carregadas em vez de inseri-las.",
+        )
 
-    operations = [
-        migrations.RunPython(load_translations, reverse_code=remove_translations),
-    ]
+    @transaction.atomic
+    def handle(self, *args, **options):
+        if options["remove"]:
+            removed_categories, removed_dishes = remove_translations()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Removidas {removed_categories} traduções de categoria "
+                    f"e {removed_dishes} traduções de pratos."
+                )
+            )
+            return
+
+        (
+            created_category,
+            updated_category,
+            created_dish,
+            updated_dish,
+        ) = load_translations()
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Traduções carregadas. "
+                f"Categorias criadas: {created_category}, atualizadas: {updated_category}. "
+                f"Pratos criados: {created_dish}, atualizados: {updated_dish}."
+            )
+        )
