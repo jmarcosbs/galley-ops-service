@@ -226,12 +226,9 @@ class NFCeService:
             )
 
         addition_value: Decimal = Decimal("0")
-        if settlement.additions_value > 0:
-            addition_value = (
-                Decimal(str(settlement_item.dish_order_price))
-                * Decimal(str(settlement.additions_value))
-                / Decimal(str(settlement.full_value))
-            )
+        # aplica "outras despesas" apenas uma vez na nota para compor vOutro
+        if settlement.additions_value > 0 and is_first_item:
+            addition_value = settlement.additions_value
 
         descricao = (
             "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"
@@ -489,14 +486,12 @@ class NFCeService:
             )
 
         evento = EventoCancelarNota(
-            EventoCancelarNota(
-                cnpj=settlement.nfce_emitter_cnpj,  # cpf ou cnpj do emissor
-                chave=settlement.nfce_access_key,  # chave de acesso da nota
-                data_emissao=datetime.datetime.now(),
-                uf=settlement.nfce_emitter_uf,
-                protocolo=settlement.nfce_authorization_protocol,  # número do protocolo da nota
-                justificativa=justification,
-            )
+            cnpj=settlement.nfce_emitter_cnpj,  # cpf ou cnpj do emissor
+            chave=settlement.nfce_access_key,  # chave de acesso da nota
+            data_emissao=datetime.datetime.now(),
+            uf=settlement.nfce_emitter_uf,
+            protocolo=settlement.nfce_authorization_protocol,  # número do protocolo da nota
+            justificativa=justification,
         )
 
         serializador = SerializacaoXML(_fonte_dados, homologacao=self.homologacao)
