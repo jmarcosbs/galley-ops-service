@@ -147,6 +147,10 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
     nfce_emitter_cnpj = models.CharField(max_length=20, blank=True, null=True)
     nfce_emitter_uf = models.CharField(max_length=2, blank=True, null=True)
 
+    nfce_last_consult_payload = models.TextField(blank=True, null=True)
+    nfce_last_status_code = models.CharField(max_length=10, blank=True, null=True)
+    nfce_last_status_message = models.CharField(max_length=255, blank=True, null=True)
+
     canceled = models.BooleanField(default=False)
     cancelation_xml = models.TextField(blank=True, null=True)
 

@@ -40,6 +40,7 @@ CORS_ALLOWED_ORIGINS = [
 
 INSTALLED_APPS = [
     "jazzmin",
+    "admin_extra_buttons",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -74,7 +75,7 @@ ASGI_APPLICATION = "core.asgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
