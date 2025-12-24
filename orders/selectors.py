@@ -73,6 +73,29 @@ def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:
     return items
 
 
+def _settlement_items(settlement: TicketSettlement) -> list[dict[str, Any]]:
+    """Itens que foram liquidados em um fechamento."""
+
+    serialized: list[dict[str, Any]] = []
+    settlement_items = settlement.items.all()
+    for settlement_item in settlement_items:
+        dish_order = settlement_item.dish_order
+        dish = dish_order.dish_or_custom_dish
+        name = getattr(dish, "name", None) or "Item"
+        department = getattr(dish, "department", None)
+        serialized.append(
+            {
+                "uuid": str(settlement_item.uuid),
+                "dish_order_uuid": str(dish_order.uuid),
+                "name": name,
+                "quantity": float(settlement_item.quantity),
+                "note": dish_order.note,
+                "department": department,
+            }
+        )
+    return serialized
+
+
 def _ticket_total(items: list[dict[str, Any]]) -> float:
     return round(sum(item["price"] * item["quantity"] for item in items), 2)
 
@@ -112,6 +135,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
     cancelable_settlements = get_cancelable_settlement_uuids()
     settlements = (
         TicketSettlement.objects.select_related("ticket", "settled_by")
+        .prefetch_related("items__dish_order__dish", "items__dish_order__custom_dish")
         .order_by("-created_at")[:limit]
     )
 
@@ -130,6 +154,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
                 "can_cancel": str(settlement.uuid) in cancelable_settlements,
                 "canceled": settlement.canceled,
                 "is_partial": settlement.ticket.status == TicketStatus.PARTIALLY_CLOSED,
+                "items": _settlement_items(settlement),
             }
         )
     return history
