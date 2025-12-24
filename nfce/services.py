@@ -331,6 +331,7 @@ class NFCeService:
             numero_nf=settlement.id,  # Número do Documento Fiscal.
             data_emissao=agora,
             data_saida_entrada=agora,
+            codigo_regime_tributario=1,
             tipo_documento=1,  # 1=saida
             municipio="4205407",  # Código IBGE do Município
             tipo_impressao_danfe=4,  # 4=DANFE NFC-e;

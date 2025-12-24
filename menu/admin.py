@@ -1,10 +1,25 @@
 from django.contrib import admin
 
-from .models import Category, Dish, SideDish, SideDishOption, CustomDish
+from .models import (
+    Category,
+    CustomDish,
+    Dish,
+    DishTranslation,
+    SideDish,
+    SideDishOption,
+)
 
 
 class BaseMenuAdmin(admin.ModelAdmin):
     readonly_fields = ("uuid", "created_at", "updated_at")
+
+
+class DishTranslationInline(admin.StackedInline):
+    model = DishTranslation
+    extra = 0
+    fields = ("language", "name", "description")
+    verbose_name = "Tradução"
+    verbose_name_plural = "Traduções"
 
 
 @admin.register(Category)
@@ -62,6 +77,7 @@ class DishAdmin(BaseMenuAdmin):
     autocomplete_fields = ("ncm",)
     filter_horizontal = ("side_dish_options",)
     ordering = ("name",)
+    inlines = (DishTranslationInline,)
 
 
 @admin.register(CustomDish)
