@@ -22,6 +22,7 @@ from orders.serializers import (
     TicketItemRemoveSerializer,
     TicketSettlementSerializer,
     TicketSettlementCancelSerializer,
+    TicketUpdateSerializer,
 )
 from orders.models import (
     DishOrder,
@@ -458,6 +459,47 @@ class TicketSettlementReprintView(APIView):
             )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TicketUpdateView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        serializer = TicketUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ticket = cast(Ticket, serializer.validated_data["ticket"])
+        new_number = serializer.validated_data["number"]
+        new_is_outside = serializer.validated_data["is_outside"]
+
+        updates: dict[str, Any] = {}
+        if ticket.number != new_number:
+            updates["number"] = new_number
+        if ticket.is_outside != new_is_outside:
+            updates["is_outside"] = new_is_outside
+
+        if updates:
+            for field, value in updates.items():
+                setattr(ticket, field, value)
+            ticket.save(update_fields=[*updates.keys(), "updated_at"])
+            broadcast_open_tables()
+
+        return Response(
+            {
+                "detail": "Mesa atualizada com sucesso."
+                if updates
+                else "Nenhuma alteração aplicada.",
+                "updated": bool(updates),
+                "ticket": {
+                    "uuid": str(ticket.uuid),
+                    "number": ticket.number,
+                    "label": ticket.table_label,
+                    "is_outside": ticket.is_outside,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class OpenTablesView(APIView):

@@ -5,12 +5,14 @@ from nfce.models import NCM
 from orders.models import DishOrder, Ticket, TicketSettlement, TicketStatus
 from orders.selectors import get_cancelable_settlement_uuids
 
+ACTIVE_TICKET_STATUSES = [TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
+
 
 def _get_active_ticket_or_error(number: int, is_outside: bool) -> Ticket:
     ticket = Ticket.objects.filter(
         number=number,
         is_outside=is_outside,
-        status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED],
+        status__in=ACTIVE_TICKET_STATUSES,
     ).first()
     if ticket is None:
         raise serializers.ValidationError("Este ticket não encontrado ou já fechado.")
@@ -197,6 +199,34 @@ class TicketSettlementSerializer(serializers.Serializer):
             attrs["ticket_number"], attrs.get("is_outside", False)
         )
         self.context["ticket"] = ticket
+        return attrs
+
+
+class TicketUpdateSerializer(serializers.Serializer):
+    ticket_uuid = serializers.UUIDField()
+    number = serializers.IntegerField(min_value=1)
+    is_outside = serializers.BooleanField()
+
+    def validate(self, attrs):
+        ticket = Ticket.objects.filter(uuid=attrs["ticket_uuid"]).first()
+        if ticket is None:
+            raise serializers.ValidationError("Ticket não encontrado.")
+        if ticket.status not in ACTIVE_TICKET_STATUSES:
+            raise serializers.ValidationError(
+                "Somente mesas abertas ou parcialmente fechadas podem ser atualizadas."
+            )
+
+        conflict_exists = Ticket.objects.filter(
+            number=attrs["number"],
+            is_outside=attrs["is_outside"],
+            status__in=ACTIVE_TICKET_STATUSES,
+        ).exclude(pk=ticket.pk)
+        if conflict_exists.exists():
+            raise serializers.ValidationError(
+                "Já existe uma mesa aberta com este número e área."
+            )
+
+        attrs["ticket"] = ticket
         return attrs
 
 
