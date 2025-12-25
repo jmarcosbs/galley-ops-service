@@ -88,9 +88,11 @@ class SideDishOption(MenuBaseModel):
     )
     default_side_dish = models.ForeignKey(
         SideDish,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         verbose_name="acompanhamento padrão",
         related_name="default_for_side_dish_options",
+        blank=True,
+        null=True,
     )
 
     constraints = [
@@ -109,11 +111,14 @@ class SideDishOption(MenuBaseModel):
             return "Nova opção de acompanhamento"
 
         dishes = list(self.side_dishes.order_by("name").values_list("name", flat=True))
-        return (
-            ", ".join(dishes) + f" - Padrão: ({self.default_side_dish.name})"
-            if dishes
-            else f"Opção {self.uuid}"
-        )
+        if dishes:
+            default_label = (
+                f" - Padrão: ({self.default_side_dish.name})"
+                if self.default_side_dish
+                else ""
+            )
+            return ", ".join(dishes) + default_label
+        return f"Opção {self.uuid}"
 
 
 class DepartmentChoices(models.TextChoices):
