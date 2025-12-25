@@ -124,7 +124,7 @@ class Ticket(CommonUUIDModel, CommonTimedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["number"],
+                fields=["number", "is_outside"],
                 condition=Q(status=TicketStatus.OPEN),
                 name="unique_open_ticket_number",
             ),

@@ -6,6 +6,17 @@ from orders.models import DishOrder, Ticket, TicketSettlement, TicketStatus
 from orders.selectors import get_cancelable_settlement_uuids
 
 
+def _get_active_ticket_or_error(number: int, is_outside: bool) -> Ticket:
+    ticket = Ticket.objects.filter(
+        number=number,
+        is_outside=is_outside,
+        status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED],
+    ).first()
+    if ticket is None:
+        raise serializers.ValidationError("Este ticket não encontrado ou já fechado.")
+    return ticket
+
+
 class SideDishSerializer(serializers.Serializer):
     side_dish_uuid = serializers.UUIDField()
 
@@ -63,36 +74,22 @@ class OrderSerializer(serializers.Serializer):
 
 class TicketItemAddSerializer(DishOrderSerializer):
     ticket_number = serializers.IntegerField()
+    is_outside = serializers.BooleanField(required=False, default=False)
 
-    def validate_ticket_number(self, value):
-        ticket = Ticket.objects.filter(
-            number=value, status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
-        ).first()
-        if ticket is None:
-            raise serializers.ValidationError(
-                "Este ticket não encontrado ou já fechado."
-            )
-
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        ticket_number = attrs["ticket_number"]
+        is_outside = attrs.get("is_outside", False)
+        ticket = _get_active_ticket_or_error(ticket_number, is_outside)
         self.context["ticket"] = ticket
-        return value
+        return attrs
 
 
 class TicketItemRemoveSerializer(serializers.Serializer):
     ticket_number = serializers.IntegerField()
+    is_outside = serializers.BooleanField(required=False, default=False)
     dish_order_uuid = serializers.UUIDField()
     quantity = serializers.FloatField()
-
-    def validate_ticket_number(self, value):
-        ticket = Ticket.objects.filter(
-            number=value, status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
-        ).first()
-        if ticket is None:
-            raise serializers.ValidationError(
-                "Este ticket não encontrado ou já fechado."
-            )
-
-        self.context["ticket"] = ticket
-        return value
 
     def validate_quantity(self, value):
         if value <= 0:
@@ -100,7 +97,11 @@ class TicketItemRemoveSerializer(serializers.Serializer):
         return value
 
     def validate(self, validated_data):
-        ticket = self.context.get("ticket")
+        validated_data = super().validate(validated_data)
+        ticket = _get_active_ticket_or_error(
+            validated_data["ticket_number"], validated_data.get("is_outside", False)
+        )
+        self.context["ticket"] = ticket
         dish_order = (
             DishOrder.objects.select_related("order__ticket")
             .filter(uuid=validated_data["dish_order_uuid"], order__ticket=ticket)
@@ -122,20 +123,9 @@ class TicketItemRemoveSerializer(serializers.Serializer):
 
 class TicketItemIncreaseSerializer(serializers.Serializer):
     ticket_number = serializers.IntegerField()
+    is_outside = serializers.BooleanField(required=False, default=False)
     dish_order_uuid = serializers.UUIDField()
     quantity = serializers.FloatField()
-
-    def validate_ticket_number(self, value):
-        ticket = Ticket.objects.filter(
-            number=value, status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
-        ).first()
-        if ticket is None:
-            raise serializers.ValidationError(
-                "Este ticket não encontrado ou já fechado."
-            )
-
-        self.context["ticket"] = ticket
-        return value
 
     def validate_quantity(self, value):
         if value <= 0:
@@ -143,7 +133,11 @@ class TicketItemIncreaseSerializer(serializers.Serializer):
         return value
 
     def validate(self, validated_data):
-        ticket = self.context.get("ticket")
+        validated_data = super().validate(validated_data)
+        ticket = _get_active_ticket_or_error(
+            validated_data["ticket_number"], validated_data.get("is_outside", False)
+        )
+        self.context["ticket"] = ticket
         dish_order = (
             DishOrder.objects.select_related("order__ticket")
             .filter(uuid=validated_data["dish_order_uuid"], order__ticket=ticket)
@@ -182,6 +176,7 @@ class TicketSettlementItemSerializer(serializers.Serializer):
 
 class TicketSettlementSerializer(serializers.Serializer):
     ticket_number = serializers.IntegerField()
+    is_outside = serializers.BooleanField(required=False, default=False)
     additions_percentage = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, default=Decimal("10")
     )
@@ -196,17 +191,13 @@ class TicketSettlementSerializer(serializers.Serializer):
             raise serializers.ValidationError("O acréscimo obrigatório é de 10%.")
         return value
 
-    def validate_ticket_number(self, value):
-        ticket = Ticket.objects.filter(
-            number=value, status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]
-        ).first()
-        if ticket is None:
-            raise serializers.ValidationError(
-                "Este ticket não encontrado ou já fechado."
-            )
-
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        ticket = _get_active_ticket_or_error(
+            attrs["ticket_number"], attrs.get("is_outside", False)
+        )
         self.context["ticket"] = ticket
-        return value
+        return attrs
 
 
 class TicketSettlementCancelSerializer(serializers.Serializer):

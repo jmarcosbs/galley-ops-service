@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TypedDict
 from uuid import UUID
 
@@ -27,6 +28,7 @@ class SerializedSettlementItemDataType(TypedDict):
 
 class SerializedSettlementDataType(TypedDict):
     ticket_number: int
-    additions: float | None
-    discounts: float | None
+    is_outside: bool
+    additions_percentage: Decimal
+    discounts_percentage: Decimal | None
     items: list[SerializedSettlementItemDataType]

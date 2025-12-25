@@ -121,6 +121,7 @@ class OrderView(APIView):
             with cast(AbstractContextManager, transaction.atomic()):
                 ticket = Ticket.objects.filter(
                     number=ticket_number,
+                    is_outside=is_outside,
                     status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED],
                 ).first()
 
@@ -131,12 +132,6 @@ class OrderView(APIView):
                         status=TicketStatus.OPEN,
                         is_outside=is_outside,
                     )
-                elif ticket.status == TicketStatus.CLOSED:
-                    raise ValidationError("Este ticket já está fechado.")
-                else:
-                    if ticket.is_outside != is_outside:
-                        ticket.is_outside = is_outside
-                        ticket.save(update_fields=["is_outside", "updated_at"])
 
                 order = Order.objects.create(
                     ticket=ticket,
@@ -210,6 +205,7 @@ class TicketItemAddView(APIView):
 
         dish_data = dict(serializer.validated_data)
         dish_data.pop("ticket_number", None)
+        dish_data.pop("is_outside", None)
 
         dish_order: DishOrder | None = None
         try:
