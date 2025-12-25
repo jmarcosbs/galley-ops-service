@@ -9,13 +9,16 @@ class TelegramService:
         self.client = TelegramClient()
 
     def make_dishes_text_list(self, order_dishes: list[dict]) -> str:
-        dishes_text = ""
+        """
+        Retorna uma lista enxuta com todos os itens do pedido pronta para o Telegram.
+        """
+        lines: list[str] = []
+
         for order_dish in order_dishes:
             dish = getattr(order_dish, "dish", None)
             custom_dish = getattr(order_dish, "custom_dish", None)
             amount = order_dish.quantity
             dish_note = order_dish.note
-            dish_name = ""
 
             if dish:
                 dish_name = dish.name
@@ -24,11 +27,12 @@ class TelegramService:
             else:
                 dish_name = "Item sem nome"
 
-            dishes_text += f"""
-            <b>{amount}x {dish_name}</b>
-            {'<b>Observação: </b>' + dish_note if dish_note else ''}
-            """
-        return dishes_text
+            line = f"• <b>{amount}x</b> {dish_name}"
+            if dish_note:
+                line += f" — Obs: {dish_note}"
+            lines.append(line.strip())
+
+        return "\n".join(lines)
 
     def make_telegram_order_message(
         self,
@@ -40,18 +44,16 @@ class TelegramService:
         dishes_text: str,
     ) -> str:
 
-        return f"""
+        parts = [
+            f"<b>🛎 Pedido {order_id}</b> | Mesa {table_number} | {date_time}",
+            f"<b>Atendente:</b> {waiter}",
+            dishes_text,
+        ]
 
-            <b>🛎️ Pedido {order_id}</b>\n
-            <b>Data:</b> {date_time}
-            <b>Atendente:</b> {waiter}
-            <b>Mesa:</b> {table_number}
-            
-            {dishes_text}
-            
-            {'<b>Observação geral:</b> ' + order_note if order_note else ''}
+        if order_note:
+            parts.append(f"<b>Obs geral:</b> {order_note}")
 
-        """
+        return "\n".join(part for part in parts if part)
 
     def send_order_notification(self, order: Order) -> None:
 
