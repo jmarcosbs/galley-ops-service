@@ -40,6 +40,9 @@ deploy:
 	$(COMPOSE) --env-file $(ENV_FILE) \
 		-f $(PROD_COMPOSE_FILE) \
 		up -d --build
+	$(COMPOSE) --env-file $(ENV_FILE) \
+		-f $(PROD_COMPOSE_FILE) \
+		exec web python manage.py migrate
 	docker system prune -af --volumes
 
 run:
