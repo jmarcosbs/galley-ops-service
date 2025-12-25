@@ -39,13 +39,13 @@ class TelegramService:
         order_id: int,
         date_time: str,
         waiter: str,
-        table_number: int,
+        table_label: str,
         order_note: str | None,
         dishes_text: str,
     ) -> str:
 
         parts = [
-            f"<b>🛎 Pedido {order_id}</b> | Mesa {table_number} | {date_time}",
+            f"<b>🛎 Pedido {order_id}</b> | Mesa {table_label} | {date_time}",
             f"<b>Atendente:</b> {waiter}",
             dishes_text,
         ]
@@ -68,7 +68,7 @@ class TelegramService:
         # Formatar a data no formato desejado
         date_time = date_object.strftime("%d-%m-%Y %H:%M:%S")
 
-        ticket_number = order.ticket.number
+        ticket_label = order.ticket.table_label
         general_note = order.note
         waiter = order.waiter.username
 
@@ -92,7 +92,7 @@ class TelegramService:
                     order_id,
                     date_time,
                     waiter,
-                    ticket_number,
+                    ticket_label,
                     str(general_note),
                     self.make_dishes_text_list(order.dish_orders.all()),
                 ),
@@ -108,7 +108,7 @@ class TelegramService:
                 order_id,
                 date_time,
                 waiter,
-                ticket_number,
+                ticket_label,
                 str(general_note),
                 self.make_dishes_text_list(order.dish_orders.all()),
             ),
