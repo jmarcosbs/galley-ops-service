@@ -91,6 +91,11 @@ class Ticket(CommonUUIDModel, CommonTimedModel):
     def __str__(self):
         return f"Ticket #{self.number} ({self.status})"
 
+    @property
+    def table_label(self) -> str:
+        prefix = "R" if self.is_outside else ""
+        return f"{prefix}{self.number}"
+
     def refresh_status_from_orders(self):
         """
         Atualiza o status com base nos itens pendentes nos pedidos ligados ao ticket.

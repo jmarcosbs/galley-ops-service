@@ -117,6 +117,7 @@ def serialize_open_tables(include_items: bool = False) -> list[dict[str, Any]]:
         ticket_data = {
             "uuid": str(ticket.uuid),
             "number": ticket.number,
+            "label": ticket.table_label,
             "status": ticket.status,
             "is_outside": ticket.is_outside,
             "created_at": ticket.created_at.isoformat(),
@@ -146,6 +147,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
             {
                 "uuid": str(settlement.uuid),
                 "ticket_number": settlement.ticket.number,
+                "ticket_label": settlement.ticket.table_label,
                 "final_value": float(settlement.final_value),
                 "additions_value": float(settlement.additions_value),
                 "discounts_value": float(settlement.discounts_value),
@@ -154,6 +156,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
                 "can_cancel": str(settlement.uuid) in cancelable_settlements,
                 "canceled": settlement.canceled,
                 "is_partial": settlement.ticket.status == TicketStatus.PARTIALLY_CLOSED,
+                "is_outside": settlement.ticket.is_outside,
                 "items": _settlement_items(settlement),
             }
         )

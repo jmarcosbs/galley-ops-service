@@ -41,6 +41,8 @@ class DashboardSummaryView(APIView):
             {
                 "uuid": str(settlement.uuid),
                 "ticket_number": settlement.ticket.number,
+                "ticket_label": settlement.ticket.table_label,
+                "is_outside": settlement.ticket.is_outside,
                 "final_value": float(settlement.final_value),
                 "additions_value": float(settlement.additions_value),
                 "created_at": settlement.created_at.isoformat(),
