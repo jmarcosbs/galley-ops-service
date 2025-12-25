@@ -11,11 +11,21 @@ class TelegramService:
     def make_dishes_text_list(self, order_dishes: list[dict]) -> str:
         dishes_text = ""
         for order_dish in order_dishes:
-            dish = order_dish.dish
+            dish = getattr(order_dish, "dish", None)
+            custom_dish = getattr(order_dish, "custom_dish", None)
             amount = order_dish.quantity
             dish_note = order_dish.note
+            dish_name = ""
+
+            if dish:
+                dish_name = dish.name
+            elif custom_dish:
+                dish_name = custom_dish.name
+            else:
+                dish_name = "Item sem nome"
+
             dishes_text += f"""
-            <b>{amount}x {dish.name}</b>
+            <b>{amount}x {dish_name}</b>
             {'<b>Observação: </b>' + dish_note if dish_note else ''}
             """
         return dishes_text
@@ -62,8 +72,14 @@ class TelegramService:
 
         should_send_to_kitchen = False
 
-        for dish in order.dish_orders.all():
-            if dish.dish.department == DepartmentChoices.KITCHEN:
+        for dish_order in order.dish_orders.all():
+            department = None
+            if dish_order.dish:
+                department = dish_order.dish.department
+            elif dish_order.custom_dish:
+                department = dish_order.custom_dish.department
+
+            if department == DepartmentChoices.KITCHEN:
                 should_send_to_kitchen = True
                 break
 
