@@ -147,6 +147,11 @@ class OrderView(APIView):
                 for dish_data in serialized_order_data["dishes"]:
                     _create_dish_order_from_payload(order, dish_data)
 
+                telegram_service = TelegramService()
+                telegram_service.send_order_notification(order)
+
+                broadcast_open_tables()
+
         except ValidationError as exc:
             return Response(
                 {"detail": exc.detail if hasattr(exc, "detail") else str(exc)},
@@ -161,12 +166,6 @@ class OrderView(APIView):
                 {"detail": "Acompanhamento não encontrado."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Envia notificação para o telegram
-        telegram_service = TelegramService()
-        telegram_service.send_order_notification(order)
-
-        broadcast_open_tables()
 
         if order:
             try:
