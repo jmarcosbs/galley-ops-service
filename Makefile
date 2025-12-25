@@ -40,6 +40,7 @@ deploy:
 	$(COMPOSE) --env-file $(ENV_FILE) \
 		-f $(PROD_COMPOSE_FILE) \
 		up -d --build
+	docker system prune -af --volumes
 
 run:
 	$(COMPOSE) --env-file $(ENV_FILE) \
