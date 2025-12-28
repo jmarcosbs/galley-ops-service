@@ -1,4 +1,5 @@
-from datetime import datetime
+from django.utils import timezone
+
 from telegram.client import TelegramClient
 from orders.models import Order
 from menu.models import DepartmentChoices
@@ -60,13 +61,9 @@ class TelegramService:
         # Agora você pode acessar os dados do pedido
         order_id = order.id
 
-        original_date_time = order.created_at
-        # Converter a string para um objeto datetime
-        date_object = datetime.fromisoformat(
-            original_date_time.isoformat()[:-2] + "00"
-        )  # Remove o 'Z' no final
-        # Formatar a data no formato desejado
-        date_time = date_object.strftime("%d-%m-%Y %H:%M:%S")
+        # Converte para o timezone local (UTC-3) antes de formatar
+        localized_dt = timezone.localtime(order.created_at)
+        date_time = localized_dt.strftime("%d-%m-%Y %H:%M:%S")
 
         ticket_label = order.ticket.table_label
         general_note = order.note
@@ -93,7 +90,7 @@ class TelegramService:
                     date_time,
                     waiter,
                     ticket_label,
-                    str(general_note),
+                    general_note or None,
                     self.make_dishes_text_list(order.dish_orders.all()),
                 ),
             )
@@ -109,7 +106,7 @@ class TelegramService:
                 date_time,
                 waiter,
                 ticket_label,
-                str(general_note),
+                general_note or None,
                 self.make_dishes_text_list(order.dish_orders.all()),
             ),
         )

@@ -1,5 +1,5 @@
 import os
-from datetime import timezone as dt_timezone
+from urllib.parse import urlsplit, urlunsplit
 
 from django.utils import timezone
 
@@ -20,13 +20,29 @@ class PrintService:
 
     @staticmethod
     def _format_datetime(dt) -> str:
+        """Format datetimes using the local TZ (UTC-3) expected by the driver."""
+        local_tz = timezone.get_default_timezone()
         if timezone.is_naive(dt):
-            dt = timezone.make_aware(dt, timezone.get_default_timezone())
-        dt = dt.astimezone(dt_timezone.utc)
-        iso = dt.isoformat(timespec="milliseconds")
-        if iso.endswith("+00:00"):
-            iso = iso[:-6] + "Z"
-        return iso
+            dt = timezone.make_aware(dt, local_tz)
+        else:
+            dt = dt.astimezone(local_tz)
+        return dt.isoformat(timespec="milliseconds")
+
+    @staticmethod
+    def _resolve_access_key_url(settlement: TicketSettlement) -> str:
+        url = settlement.nfce_access_key_url
+        if url:
+            return str(url)
+
+        qrcode_url = settlement.nfce_qrcode_url
+        if qrcode_url:
+            parts = urlsplit(str(qrcode_url))
+            base_url = urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+            if base_url:
+                return base_url
+
+        fallback = os.environ.get("NFCE_ACCESS_KEY_URL_FALLBACK", "").strip()
+        return fallback
 
     def print_order(self, order: Order) -> tuple[bool, int, str]:
 
@@ -74,7 +90,7 @@ class PrintService:
                 date_time=self._format_datetime(order.created_at),
                 table_number=order.ticket.number,
                 order_dishes=list(items),
-                order_note=str(order.note),
+                order_note=order.note or "",
                 waiter=order.waiter.username,
                 is_outside=order.ticket.is_outside,
             )
@@ -143,11 +159,15 @@ class PrintService:
             if item_id is None:
                 continue
 
-            display_quantity = (
-                0.65
-                if getattr(settlement_item, "charged_half_portion", False)
-                else settlement_item.quantity
-            )
+            charged_half_portion = getattr(settlement_item, "charged_half_portion", False)
+            display_quantity = 0.65 if charged_half_portion else settlement_item.quantity
+            unit_price = float(settlement_item.dish_order_price)
+
+            if charged_half_portion:
+                base_price = getattr(item, "price", None)
+                if base_price is not None:
+                    unit_price = float(base_price)
+
             key = (
                 "dish" if dish_order.dish_id else "custom",
                 str(item_id),
@@ -164,7 +184,7 @@ class PrintService:
                     ),
                     "amount": display_quantity,
                     "notes": [note] if note else [],
-                    "unit_price": float(settlement_item.dish_order_price),
+                    "unit_price": unit_price,
                     "category_name": category_name,
                     "department": department,
                     "first_seen_index": position,
@@ -226,8 +246,9 @@ class PrintService:
         elif settlement.nfce_xml:
             # Mantém fallback para registros antigos que não possuem chave armazenada.
             payload["access_key"] = str(settlement.nfce_xml)
-        if settlement.nfce_access_key_url:
-            payload["access_key_url"] = str(settlement.nfce_access_key_url)
+        access_key_url = self._resolve_access_key_url(settlement)
+        if access_key_url:
+            payload["access_key_url"] = access_key_url
         if settlement.nfce_number:
             payload["nfce_number"] = str(settlement.nfce_number)
         if settlement.nfce_series:
