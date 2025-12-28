@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - feature/menu/creating-menu-structure
-    paths:
-      - ".github/workflows/terraform.yml"
-      - "**/*.tf"
   workflow_dispatch:
 
 env:
