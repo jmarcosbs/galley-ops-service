@@ -324,7 +324,7 @@ class NFCeService:
             forma_pagamento=0,  # 0=Pagamento à vista
             tipo_pagamento=3,
             modelo=65,  # 65=NFC-e
-            serie="1",
+            serie=os.environ.get("SERIE_NF_EMITENTE"),
             numero_nf=settlement.id,  # Número do Documento Fiscal.
             data_emissao=agora,
             data_saida_entrada=agora,
