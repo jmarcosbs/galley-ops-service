@@ -236,6 +236,7 @@ class NFCeService:
             else dish.name
         )
 
+        unit_price = Decimal(str(settlement_item.dish_order_price))
         product_tax_note = tax_note.adicionar_produto_servico(
             nota_fiscal=tax_note,
             codigo=str(dish.id),
@@ -246,12 +247,11 @@ class NFCeService:
             ean="SEM GTIN",
             ean_tributavel="SEM GTIN",
             quantidade_comercial=Decimal(str(settlement_item.quantity)),
-            valor_unitario_comercial=Decimal(str(dish.price)),
-            valor_total_bruto=Decimal(str(dish.price))
-            * Decimal(str(settlement_item.quantity)),
+            valor_unitario_comercial=unit_price,
+            valor_total_bruto=unit_price * Decimal(str(settlement_item.quantity)),
             unidade_tributavel="UN",
             quantidade_tributavel=Decimal(str(settlement_item.quantity)),
-            valor_unitario_tributavel=Decimal(str(dish.price)),
+            valor_unitario_tributavel=unit_price,
             outras_despesas_acessorias=addition_value,
             desconto=discount_value,
         )
