@@ -31,23 +31,40 @@ class PrintService:
     def print_order(self, order: Order) -> tuple[bool, int, str]:
 
         def _build_order_input(department: str) -> PrinterOrderInputType | None:
-            items: list[PrinterOrderDishData] = []
-            for dish_order in order.dish_orders.select_related(
-                "dish", "custom_dish"
-            ).all():
+            dish_orders = order.dish_orders.select_related(
+                "dish", "dish__category", "custom_dish"
+            ).all()
+
+            items_with_sort: list[tuple[tuple[int, int], PrinterOrderDishData]] = []
+            for position, dish_order in enumerate(dish_orders):
                 item = dish_order.dish_or_custom_dish
                 if not item or item.department != department:
                     continue
-                items.append(
-                    {
-                        "dish": PrinterDishData(
-                            dish_name=item.name,
-                            department=item.department,
-                        ),
-                        "amount": dish_order.quantity,
-                        "dish_note": dish_order.note,
-                    }
+
+                category = getattr(item, "category", None)
+                category_name = getattr(category, "name", None)
+                is_starter = (
+                    department == "kitchen"
+                    and category_name
+                    and "entrada" in category_name.casefold()
                 )
+
+                items_with_sort.append(
+                    (
+                        (0 if is_starter else 1, position),
+                        {
+                            "dish": PrinterDishData(
+                                dish_name=item.name,
+                                department=item.department,
+                            ),
+                            "amount": dish_order.quantity,
+                            "dish_note": dish_order.note,
+                        },
+                    )
+                )
+
+            sorted_items = sorted(items_with_sort, key=lambda entry: entry[0])
+            items = [printer_dish for _, printer_dish in sorted_items]
 
             if not items:
                 return None
