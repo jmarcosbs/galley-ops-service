@@ -156,6 +156,7 @@ class TicketSettlementAdmin(ExtraButtonsMixin, BaseOrderAdmin):
         "full_value",
         "additions_value",
         "discounts_value",
+        "is_partial",
         "total_taxes",
         "settled_by",
         "created_at",

@@ -120,6 +120,7 @@ def serialize_open_tables(include_items: bool = False) -> list[dict[str, Any]]:
             "number": ticket.number,
             "label": ticket.table_label,
             "status": ticket.status,
+            "status_label": ticket.get_status_display(),
             "is_outside": ticket.is_outside,
             "created_at": ticket.created_at.isoformat(),
             "updated_at": ticket.updated_at.isoformat(),
@@ -156,7 +157,7 @@ def serialize_settlement_history(limit: int = 10) -> list[dict[str, Any]]:
                 "created_at": settlement.created_at.isoformat(),
                 "can_cancel": str(settlement.uuid) in cancelable_settlements,
                 "canceled": settlement.canceled,
-                "is_partial": settlement.ticket.status == TicketStatus.PARTIALLY_CLOSED,
+                "is_partial": settlement.is_partial,
                 "is_outside": settlement.ticket.is_outside,
                 "items": _settlement_items(settlement),
             }

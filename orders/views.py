@@ -413,6 +413,13 @@ class TicketSettlementView(APIView):
                     charged_half_portion=apply_half_increase,
                 )
 
+            has_remaining_items = DishOrder.objects.filter(
+                order__ticket=ticket, quantity__gt=0
+            ).exists()
+            if settlement.is_partial != has_remaining_items:
+                settlement.is_partial = has_remaining_items
+                settlement.save(update_fields=["is_partial", "updated_at"])
+
             helper = OrderHelper()
             try:
                 response = helper.send_nfce(settlement)
