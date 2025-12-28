@@ -116,13 +116,18 @@ class PrintService:
             item = dish_order.dish_or_custom_dish
             if not item:
                 continue
+            display_quantity = (
+                0.65
+                if getattr(settlement_item, "charged_half_portion", False)
+                else settlement_item.quantity
+            )
             dishes.append(
                 {
                     "dish": PrinterDishData(
                         dish_name=item.name,
                         department=item.department,
                     ),
-                    "amount": settlement_item.quantity,
+                    "amount": display_quantity,
                     "dish_note": dish_order.note,
                     "unit_price": float(settlement_item.dish_order_price),
                 }
