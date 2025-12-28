@@ -107,29 +107,80 @@ class PrintService:
         ticket = settlement.ticket
         settlement_items = settlement.items.select_related(
             "dish_order__dish",
+            "dish_order__dish__category",
             "dish_order__custom_dish",
         )
 
-        dishes = []
-        for settlement_item in settlement_items:
+        # Agrupa pratos idênticos para impressão da conta, independente das observações.
+        grouped_dishes: dict[tuple[str, str, str], dict] = {}
+        for position, settlement_item in enumerate(settlement_items):
             dish_order = settlement_item.dish_order
             item = dish_order.dish_or_custom_dish
             if not item:
                 continue
+
+            category = getattr(item, "category", None)
+            category_name = getattr(category, "name", None)
+            department = item.department
+            item_id = dish_order.dish_id or dish_order.custom_dish_id
+            if item_id is None:
+                continue
+
             display_quantity = (
                 0.65
                 if getattr(settlement_item, "charged_half_portion", False)
                 else settlement_item.quantity
             )
-            dishes.append(
-                {
+            key = (
+                "dish" if dish_order.dish_id else "custom",
+                str(item_id),
+                str(settlement_item.dish_order_price),
+            )
+            note = (dish_order.note or "").strip()
+
+            grouped = grouped_dishes.get(key)
+            if grouped is None:
+                grouped_dishes[key] = {
                     "dish": PrinterDishData(
                         dish_name=item.name,
-                        department=item.department,
+                        department=department,
                     ),
                     "amount": display_quantity,
-                    "dish_note": dish_order.note,
+                    "notes": [note] if note else [],
                     "unit_price": float(settlement_item.dish_order_price),
+                    "category_name": category_name,
+                    "department": department,
+                    "first_seen_index": position,
+                }
+            else:
+                grouped["amount"] += display_quantity
+                if note and note not in grouped["notes"]:
+                    grouped["notes"].append(note)
+                grouped["first_seen_index"] = min(
+                    grouped["first_seen_index"], position
+                )
+
+        # Ordena entradas primeiro, depois principais e por fim itens da copa.
+        def _group_order(entry: dict) -> tuple[int, int]:
+            category_name = entry.get("category_name")
+            department = entry.get("department")
+            if category_name and "entrada" in category_name.casefold():
+                bucket = 1
+            elif department == "bar":
+                bucket = 3
+            else:
+                bucket = 2
+            return (bucket, entry.get("first_seen_index", 0))
+
+        dishes = []
+        for grouped in sorted(grouped_dishes.values(), key=_group_order):
+            notes = grouped.get("notes") or []
+            dishes.append(
+                {
+                    "dish": grouped["dish"],
+                    "amount": grouped["amount"],
+                    "dish_note": " | ".join(notes) if notes else None,
+                    "unit_price": grouped["unit_price"],
                 }
             )
 
