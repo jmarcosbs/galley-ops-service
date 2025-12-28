@@ -91,6 +91,7 @@ def _settlement_items(settlement: TicketSettlement) -> list[dict[str, Any]]:
                 "quantity": float(settlement_item.quantity),
                 "note": dish_order.note,
                 "department": department,
+                "charged_half_portion": settlement_item.charged_half_portion,
             }
         )
     return serialized

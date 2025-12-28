@@ -1,6 +1,7 @@
 from contextlib import AbstractContextManager
 from decimal import Decimal
 from typing import Any, cast
+from uuid import UUID
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -332,31 +333,62 @@ class TicketSettlementView(APIView):
 
         with cast(AbstractContextManager, transaction.atomic()):
 
+            ticket_dish_orders = (
+                DishOrder.objects.filter(order__ticket=ticket)
+                .select_related("order__ticket", "dish", "custom_dish")
+                .prefetch_related("settlement_items")
+            )
+            dish_orders_by_uuid = {dish_order.uuid: dish_order for dish_order in ticket_dish_orders}
+
+            half_dish_uuids: set[UUID] = set()
+            for dish_order in ticket_dish_orders:
+                settled_total = sum(
+                    Decimal(str(settlement_item.quantity))
+                    for settlement_item in dish_order.settlement_items.all()
+                )
+                original_quantity = Decimal(str(dish_order.quantity)) + settled_total
+                if original_quantity == Decimal("0.5"):
+                    half_dish_uuids.add(dish_order.uuid)
+            has_half_pair = len(half_dish_uuids) >= 2
+
             items_with_orders: list[
-                tuple[SerializedSettlementItemDataType, DishOrder]
+                tuple[SerializedSettlementItemDataType, DishOrder, bool]
             ] = []
             for item in data["items"]:
-                dish_order = DishOrder.objects.select_related("order__ticket").get(
-                    uuid=item["dish_order_uuid"]
-                )
-                items_with_orders.append((item, dish_order))
+                dish_order = dish_orders_by_uuid.get(item["dish_order_uuid"])
+                if dish_order is None:
+                    raise ValidationError("Este item não pertence ao ticket informado.")
+
+                apply_half_increase = has_half_pair and dish_order.uuid in half_dish_uuids
+                items_with_orders.append((item, dish_order, apply_half_increase))
 
             additions_percentage = data["additions_percentage"]
             discounts_percentage = data.get("discounts_percentage") or Decimal("0")
 
             # Printa os itens e valores
             print("Itens e valores:")
-            for item, order in items_with_orders:
-                dish = order.dish_or_custom_dish
+            prepared_items: list[
+                tuple[SerializedSettlementItemDataType, DishOrder, Decimal, bool]
+            ] = []
+            full_value = Decimal("0")
+            for item, dish_order, apply_half_increase in items_with_orders:
+                dish = dish_order.dish_or_custom_dish
+                dish_price = Decimal(str(dish.price))
+                quantity = Decimal(str(item["dish_order_quantity"]))
+                multiplier = Decimal("1.3") if apply_half_increase else Decimal("1")
+                line_total = dish_price * quantity * multiplier
+                charged_unit_price = dish_price * multiplier
+
                 print(
-                    f"Item: {item['dish_order_uuid']}, Quantidade: {item['dish_order_quantity']}, Valor: {Decimal(dish.price) * Decimal(str(item['dish_order_quantity']))}"
+                    f"Item: {item['dish_order_uuid']}, Quantidade: {item['dish_order_quantity']}, Valor: {line_total} "
+                    f"{'(meia com ajuste)' if apply_half_increase else ''}"
                 )
 
-            full_value = sum(
-                Decimal(order.dish_or_custom_dish.price)
-                * Decimal(str(item["dish_order_quantity"]))
-                for item, order in items_with_orders
-            )
+                full_value += line_total
+                prepared_items.append(
+                    (item, dish_order, charged_unit_price, apply_half_increase)
+                )
+
             final_value = (
                 full_value
                 * (1 + Decimal(additions_percentage) / 100)
@@ -372,13 +404,13 @@ class TicketSettlementView(APIView):
                 final_value=final_value,
             )
 
-            for item, dish_order in items_with_orders:
-                dish = dish_order.dish_or_custom_dish
+            for item, dish_order, unit_price, apply_half_increase in prepared_items:
                 TicketSettlementItem.objects.create(
                     settlement=settlement,
                     dish_order=dish_order,
-                    dish_order_price=dish.price,
+                    dish_order_price=unit_price,
                     quantity=item["dish_order_quantity"],
+                    charged_half_portion=apply_half_increase,
                 )
 
             helper = OrderHelper()
