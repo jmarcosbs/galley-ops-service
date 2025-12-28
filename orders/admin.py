@@ -71,7 +71,7 @@ class DishOrderInline(admin.TabularInline):
 class TicketSettlementItemInline(admin.TabularInline):
     model = TicketSettlementItem
     extra = 0
-    readonly_fields = ("dish_order_price",)
+    readonly_fields = ("dish_order_price", "charged_half_portion")
     autocomplete_fields = ("dish_order",)
     show_change_link = True
 
@@ -260,6 +260,7 @@ class TicketSettlementItemAdmin(BaseOrderAdmin):
         "ticket_label",
         "dish_order",
         "quantity",
+        "charged_half_portion",
         "dish_order_price",
         "total_taxes",
     )

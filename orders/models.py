@@ -184,6 +184,7 @@ class TicketSettlementItem(CommonUUIDModel, CommonTimedModel):
     )
     dish_order_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.FloatField()  # quanto deste item foi liquidado
+    charged_half_portion = models.BooleanField(default=False)
 
     @property
     def total_taxes(self):
