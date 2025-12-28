@@ -76,10 +76,10 @@ class DishOrderSideDish(CommonUUIDModel, CommonTimedModel):
 
 
 class TicketStatus(models.TextChoices):
-    OPEN = "open"
-    CLOSED = "closed"
-    PARTIALLY_CLOSED = "partially_paid"
-    CANCELLED = "cancelled"
+    OPEN = "open", "Aberta"
+    CLOSED = "closed", "Fechada"
+    PARTIALLY_CLOSED = "partially_paid", "Parcialmente fechada"
+    CANCELLED = "cancelled", "Cancelada"
 
 
 class Ticket(CommonUUIDModel, CommonTimedModel):
@@ -159,6 +159,7 @@ class TicketSettlement(CommonUUIDModel, CommonTimedModel):
 
     canceled = models.BooleanField(default=False)
     cancelation_xml = models.TextField(blank=True, null=True)
+    is_partial = models.BooleanField(default=False)
 
     @property
     def total_taxes(self):
