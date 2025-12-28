@@ -1,4 +1,77 @@
-*.pfx
+# Environment & secrets
 .env
-*.pyc
-.venv
+.env.*
+!.env.example
+*.pfx
+
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Tooling cache & test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+*.log
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+sdist/
+develop-eggs/
+.eggs/
+parts/
+var/
+lib/
+lib64/
+pip-wheel-metadata/
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Databases & media generated in dev
+*.sqlite3
+db.sqlite3
+instance/
+media/
+
+# Terraform local state
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# IDE & OS noise
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+ 
