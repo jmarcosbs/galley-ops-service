@@ -335,19 +335,32 @@ class TicketSettlementView(APIView):
 
             ticket_dish_orders = (
                 DishOrder.objects.filter(order__ticket=ticket)
-                .select_related("order__ticket", "dish", "custom_dish")
+                .select_related("order__ticket", "dish", "dish__category", "custom_dish")
                 .prefetch_related("settlement_items")
             )
             dish_orders_by_uuid = {dish_order.uuid: dish_order for dish_order in ticket_dish_orders}
 
             half_dish_uuids: set[UUID] = set()
+            entry_dish_uuids: set[UUID] = set()
             for dish_order in ticket_dish_orders:
+                dish = dish_order.dish
+                category_name = (
+                    dish.category.name
+                    if dish and getattr(dish, "category", None)
+                    else None
+                )
+                is_entry = bool(
+                    category_name and "entrada" in category_name.casefold()
+                )
+                if is_entry:
+                    entry_dish_uuids.add(dish_order.uuid)
+
                 settled_total = sum(
                     Decimal(str(settlement_item.quantity))
                     for settlement_item in dish_order.settlement_items.all()
                 )
                 original_quantity = Decimal(str(dish_order.quantity)) + settled_total
-                if original_quantity == Decimal("0.5"):
+                if original_quantity == Decimal("0.5") and not is_entry:
                     half_dish_uuids.add(dish_order.uuid)
             has_half_pair = len(half_dish_uuids) >= 2
 
@@ -359,7 +372,11 @@ class TicketSettlementView(APIView):
                 if dish_order is None:
                     raise ValidationError("Este item não pertence ao ticket informado.")
 
-                apply_half_increase = has_half_pair and dish_order.uuid in half_dish_uuids
+                apply_half_increase = (
+                    has_half_pair
+                    and dish_order.uuid in half_dish_uuids
+                    and dish_order.uuid not in entry_dish_uuids
+                )
                 items_with_orders.append((item, dish_order, apply_half_increase))
 
             additions_percentage = data["additions_percentage"]
