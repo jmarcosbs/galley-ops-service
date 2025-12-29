@@ -35,14 +35,18 @@ from orders.models import (
     TicketStatus,
 )
 from orders.services import broadcast_open_tables
-from printer.service import PrintService
 from orders.types import (
     SerializedOrderDataType,
     SerializedSettlementDataType,
     SerializedSettlementItemDataType,
 )
+from orders.tasks import (
+    print_order_task,
+    print_settlement_task,
+    send_order_notification_task,
+)
+from printer.service import PrintService
 import logging
-from telegram.service import TelegramService
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +148,14 @@ class OrderView(APIView):
                 for dish_data in serialized_order_data["dishes"]:
                     _create_dish_order_from_payload(order, dish_data)
 
-                telegram_service = TelegramService()
-                telegram_service.send_order_notification(order)
+                order_id_for_tasks = order.id
+
+                transaction.on_commit(
+                    lambda oid=order_id_for_tasks: send_order_notification_task.delay(oid)
+                )
+                transaction.on_commit(
+                    lambda oid=order_id_for_tasks: print_order_task.delay(oid)
+                )
 
                 broadcast_open_tables()
 
@@ -163,26 +173,6 @@ class OrderView(APIView):
                 {"detail": "Acompanhamento não encontrado."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        if order:
-            try:
-                printer_service = PrintService()
-                success, printer_status, printer_response = printer_service.print_order(
-                    order
-                )
-                if not success:
-                    logger.warning(
-                        "Falha ao enviar pedido %s para impressoras (status=%s, response=%s)",
-                        order.id,
-                        printer_status,
-                        printer_response,
-                    )
-            except (
-                Exception
-            ) as exc:  # pragma: no cover - fallback para evitar quebrar pedidos
-                logger.exception(
-                    "Erro ao enviar pedido %s para impressoras: %s", order.id, exc
-                )
 
         return Response(status=status.HTTP_200_OK)
 
@@ -456,26 +446,12 @@ class TicketSettlementView(APIView):
                     "Falha na emissão da NFC-e; conta não foi fechada."
                 )
 
-        broadcast_open_tables()
+            settlement_id_for_print = settlement.id
+            transaction.on_commit(
+                lambda sid=settlement_id_for_print: print_settlement_task.delay(sid)
+            )
 
-        try:
-            printer_service = PrintService()
-            success, printer_status, printer_response = printer_service.print_bill(
-                settlement
-            )
-            if not success:
-                logger.warning(
-                    "Falha ao enviar fechamento %s para impressora de contas (status=%s, response=%s)",
-                    settlement.id,
-                    printer_status,
-                    printer_response,
-                )
-        except Exception as exc:  # pragma: no cover
-            logger.exception(
-                "Erro ao imprimir fechamento %s na impressora de contas: %s",
-                settlement.id,
-                exc,
-            )
+        broadcast_open_tables()
 
         return Response(status=status.HTTP_201_CREATED)
 
