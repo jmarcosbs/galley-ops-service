@@ -59,6 +59,23 @@ services:
     volumes:
       - ./staticfiles:/app/staticfiles
 
+  celery:
+    build:
+      context: .
+    command: >
+      celery -A core worker
+      --loglevel=info
+      --concurrency=${CELERY_CONCURRENCY:-4}
+    env_file:
+      - .env
+    environment:
+      <<: *django-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      - redis
+
   redis:
     image: redis:7
     command: redis-server --appendonly yes
