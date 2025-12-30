@@ -22,6 +22,7 @@ ALLOWED_HOSTS = [
     "service.restaurantemarinheiros.com.br",
     "127.0.0.1",
     "localhost",
+    "34.95.254.32",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
