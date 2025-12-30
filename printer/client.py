@@ -1,6 +1,13 @@
 import os
 import requests
-from printer.types import PrinterBillInputType, PrinterOrderInputType, PrinterSuccessResponseType, PrinterErrorResponseType, PrinterSuccessHealthResponseType, PrinterErrorResponseHealthType
+from printer.types import (
+    PrinterBillInputType,
+    PrinterOrderInputType,
+    PrinterSuccessResponseType,
+    PrinterErrorResponseType,
+    PrinterSuccessHealthResponseType,
+    PrinterErrorResponseHealthType,
+)
 
 
 class PrinterClient:
@@ -12,7 +19,6 @@ class PrinterClient:
 
     def _post(self, path: str, payload: dict) -> requests.Response:
         url = f"{self.base_url}{path}"
-        print(payload)
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code >= 500:
             # Padroniza mensagem de erro do driver para não vazar detalhes internos
@@ -26,15 +32,23 @@ class PrinterClient:
             raise requests.HTTPError(message, response=response)
         return response
 
-    def health(self) -> PrinterSuccessHealthResponseType | PrinterErrorResponseHealthType:
+    def health(
+        self,
+    ) -> PrinterSuccessHealthResponseType | PrinterErrorResponseHealthType:
         url = f"{self.base_url}/health"
         return requests.get(url, timeout=10)
 
-    def print_bar(self, order_payload: PrinterOrderInputType) -> PrinterSuccessResponseType | PrinterErrorResponseType:
+    def print_bar(
+        self, order_payload: PrinterOrderInputType
+    ) -> PrinterSuccessResponseType | PrinterErrorResponseType:
         return self._post("/print-bar", order_payload)
 
-    def print_kitchen(self, order_payload: PrinterOrderInputType) -> PrinterSuccessResponseType | PrinterErrorResponseType:
+    def print_kitchen(
+        self, order_payload: PrinterOrderInputType
+    ) -> PrinterSuccessResponseType | PrinterErrorResponseType:
         return self._post("/print-kitchen", order_payload)
 
-    def print_bill(self, bill_payload: PrinterBillInputType) -> PrinterSuccessResponseType | PrinterErrorResponseType:
+    def print_bill(
+        self, bill_payload: PrinterBillInputType
+    ) -> PrinterSuccessResponseType | PrinterErrorResponseType:
         return self._post("/print-bill", bill_payload)

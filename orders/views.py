@@ -104,9 +104,6 @@ class OrderView(APIView):
     def post(self, request: Request):
         user = request.user
 
-        # printa o payload recebido
-        print(request.data)
-
         serializer = OrderSerializer(data=request.data)
         if not serializer.is_valid():
             logger.warning(
@@ -151,7 +148,9 @@ class OrderView(APIView):
                 order_id_for_tasks = order.id
 
                 transaction.on_commit(
-                    lambda oid=order_id_for_tasks: send_order_notification_task.delay(oid)
+                    lambda oid=order_id_for_tasks: send_order_notification_task.delay(
+                        oid
+                    )
                 )
                 transaction.on_commit(
                     lambda oid=order_id_for_tasks: print_order_task.delay(oid)
@@ -325,10 +324,14 @@ class TicketSettlementView(APIView):
 
             ticket_dish_orders = (
                 DishOrder.objects.filter(order__ticket=ticket)
-                .select_related("order__ticket", "dish", "dish__category", "custom_dish")
+                .select_related(
+                    "order__ticket", "dish", "dish__category", "custom_dish"
+                )
                 .prefetch_related("settlement_items")
             )
-            dish_orders_by_uuid = {dish_order.uuid: dish_order for dish_order in ticket_dish_orders}
+            dish_orders_by_uuid = {
+                dish_order.uuid: dish_order for dish_order in ticket_dish_orders
+            }
 
             half_dish_uuids: set[UUID] = set()
             entry_dish_uuids: set[UUID] = set()
@@ -339,9 +342,7 @@ class TicketSettlementView(APIView):
                     if dish and getattr(dish, "category", None)
                     else None
                 )
-                is_entry = bool(
-                    category_name and "entrada" in category_name.casefold()
-                )
+                is_entry = bool(category_name and "entrada" in category_name.casefold())
                 if is_entry:
                     entry_dish_uuids.add(dish_order.uuid)
 
@@ -372,8 +373,6 @@ class TicketSettlementView(APIView):
             additions_percentage = data["additions_percentage"]
             discounts_percentage = data.get("discounts_percentage") or Decimal("0")
 
-            # Printa os itens e valores
-            print("Itens e valores:")
             prepared_items: list[
                 tuple[SerializedSettlementItemDataType, DishOrder, Decimal, bool]
             ] = []
@@ -385,11 +384,6 @@ class TicketSettlementView(APIView):
                 multiplier = Decimal("1.3") if apply_half_increase else Decimal("1")
                 line_total = dish_price * quantity * multiplier
                 charged_unit_price = dish_price * multiplier
-
-                print(
-                    f"Item: {item['dish_order_uuid']}, Quantidade: {item['dish_order_quantity']}, Valor: {line_total} "
-                    f"{'(meia com ajuste)' if apply_half_increase else ''}"
-                )
 
                 full_value += line_total
                 prepared_items.append(
@@ -519,9 +513,11 @@ class TicketUpdateView(APIView):
 
         return Response(
             {
-                "detail": "Mesa atualizada com sucesso."
-                if updates
-                else "Nenhuma alteração aplicada.",
+                "detail": (
+                    "Mesa atualizada com sucesso."
+                    if updates
+                    else "Nenhuma alteração aplicada."
+                ),
                 "updated": bool(updates),
                 "ticket": {
                     "uuid": str(ticket.uuid),
@@ -553,9 +549,7 @@ class TicketSettlementCancelView(APIView):
 
     def post(self, request: Request):
         if not request.user.is_superuser:
-            raise ValidationError(
-                "Apenas superusuários podem cancelar fechamentos."
-            )
+            raise ValidationError("Apenas superusuários podem cancelar fechamentos.")
 
         serializer = TicketSettlementCancelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -578,7 +572,9 @@ class TicketSettlementCancelView(APIView):
                     "Falha ao cancelar NFC-e; fechamento não foi cancelado."
                 )
 
-            raw_response = response.get("raw_response") if isinstance(response, dict) else None
+            raw_response = (
+                response.get("raw_response") if isinstance(response, dict) else None
+            )
             cancelation_xml = None
             if raw_response:
                 if isinstance(raw_response, (bytes, bytearray)):

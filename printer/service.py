@@ -98,8 +98,6 @@ class PrintService:
         input_for_kitchen = _build_order_input("kitchen")
         input_for_bar = _build_order_input("bar")
 
-        print(input_for_kitchen)
-
         responses: list = []
         errors: list[str] = []
 
@@ -159,8 +157,12 @@ class PrintService:
             if item_id is None:
                 continue
 
-            charged_half_portion = getattr(settlement_item, "charged_half_portion", False)
-            display_quantity = 0.65 if charged_half_portion else settlement_item.quantity
+            charged_half_portion = getattr(
+                settlement_item, "charged_half_portion", False
+            )
+            display_quantity = (
+                0.65 if charged_half_portion else settlement_item.quantity
+            )
             unit_price = float(settlement_item.dish_order_price)
 
             if charged_half_portion:
@@ -193,9 +195,7 @@ class PrintService:
                 grouped["amount"] += display_quantity
                 if note and note not in grouped["notes"]:
                     grouped["notes"].append(note)
-                grouped["first_seen_index"] = min(
-                    grouped["first_seen_index"], position
-                )
+                grouped["first_seen_index"] = min(grouped["first_seen_index"], position)
 
         # Ordena entradas primeiro, depois principais e por fim itens da copa.
         def _group_order(entry: dict) -> tuple[int, int]:
@@ -296,7 +296,9 @@ class PrintService:
         if city or state:
             city_state = city.strip()
             if state:
-                city_state = f"{city_state}/{state.strip()}" if city_state else state.strip()
+                city_state = (
+                    f"{city_state}/{state.strip()}" if city_state else state.strip()
+                )
             address_parts.append(city_state)
 
         company_address = " - ".join(part for part in address_parts if part)
