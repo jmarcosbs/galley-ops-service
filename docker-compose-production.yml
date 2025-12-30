@@ -66,6 +66,43 @@ services:
       celery -A core worker
       --loglevel=info
       --concurrency=${CELERY_CONCURRENCY:-4}
+      --queues=default
+    env_file:
+      - .env
+    environment:
+      <<: *django-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  celery-notifications:
+    build:
+      context: .
+    command: >
+      celery -A core worker
+      --loglevel=info
+      --concurrency=${CELERY_CONCURRENCY:-2}
+      --queues=notifications
+    env_file:
+      - .env
+    environment:
+      <<: *django-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  celery-printing:
+    build:
+      context: .
+    command: >
+      celery -A core worker
+      --loglevel=info
+      --concurrency=${CELERY_CONCURRENCY:-2}
+      --queues=printing
     env_file:
       - .env
     environment:

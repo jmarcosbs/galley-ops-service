@@ -22,7 +22,13 @@ def _refresh_order(order_id: int) -> Order | None:
         return None
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+    queue="notifications",
+)
 def send_order_notification_task(self, order_id: int) -> None:
     order = _refresh_order(order_id)
     if not order:
@@ -31,7 +37,13 @@ def send_order_notification_task(self, order_id: int) -> None:
     TelegramService().send_order_notification(order)
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+    queue="printing",
+)
 def print_order_task(self, order_id: int) -> dict[str, object]:
     order = _refresh_order(order_id)
     if not order:
@@ -49,7 +61,13 @@ def print_order_task(self, order_id: int) -> dict[str, object]:
     return {"success": success, "status": status_code, "response": response_text}
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+    queue="printing",
+)
 def print_settlement_task(self, settlement_id: int) -> dict[str, object]:
     try:
         settlement = TicketSettlement.objects.select_related("ticket", "settled_by").get(
