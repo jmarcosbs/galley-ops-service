@@ -63,5 +63,3 @@ def send_notification_kitchen(order_data):
     if isForKitchen:
         send = requests.get(telegramUrlKitchen)  # Send message in Telegram
         send.json()
-
-    print("Notificação enviada cozinha")
