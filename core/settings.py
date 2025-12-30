@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+from kombu import Exchange, Queue
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,6 +124,14 @@ CELERY_TASK_ALWAYS_EAGER = (
 )
 CELERY_TASK_TIME_LIMIT = int(os.environ.get("CELERY_TASK_TIME_LIMIT", "120"))
 CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "90"))
+CELERY_TASK_QUEUES = (
+    Queue("default", Exchange("default"), routing_key="default"),
+    Queue("notifications", Exchange("notifications"), routing_key="notifications"),
+    Queue("printing", Exchange("printing"), routing_key="printing"),
+)
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_DEFAULT_EXCHANGE = "default"
+CELERY_TASK_DEFAULT_ROUTING_KEY = "default"
 
 
 # Database
