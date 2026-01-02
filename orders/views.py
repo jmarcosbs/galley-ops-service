@@ -5,6 +5,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from nfce.models import NCM
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -13,6 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from idempotency_key.decorators import idempotency_key
 from menu.models import Dish, SideDish, CustomDish
 from orders.helpers import OrderHelper
 from orders.selectors import serialize_open_tables
@@ -97,6 +99,7 @@ def _create_dish_order_from_payload(
     return dish_order
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class OrderView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -176,6 +179,7 @@ class OrderView(APIView):
         return Response(status=status.HTTP_200_OK)
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class TicketItemAddView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -235,6 +239,7 @@ class TicketItemAddView(APIView):
         )
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class TicketItemRemoveView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -263,6 +268,7 @@ class TicketItemRemoveView(APIView):
         )
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class TicketItemIncreaseView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -291,6 +297,7 @@ class TicketItemIncreaseView(APIView):
         )
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class TicketSettlementView(APIView):
     """
     Cria um fechamento (total ou parcial) para um ticket.
@@ -540,6 +547,7 @@ class OpenTablesView(APIView):
         return Response({"tables": tables}, status=status.HTTP_200_OK)
 
 
+@method_decorator(idempotency_key(), name="dispatch")
 class TicketSettlementCancelView(APIView):
     """
     Cancela um fechamento.

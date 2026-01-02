@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+from corsheaders.defaults import default_headers
 from kombu import Exchange, Queue
 
 
@@ -39,6 +40,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4321",
 ]
 
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "Idempotency-Key",
+    "idempotency-key",
+]
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -67,6 +73,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "idempotency_key.middleware.ExemptIdempotencyKeyMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -148,6 +155,41 @@ DATABASES = {
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
+
+default_cache_backend = {
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    "LOCATION": "marinheiros-default-cache",
+}
+
+if REDIS_HOST:
+    default_cache_backend = {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+
+CACHES = {
+    "default": default_cache_backend,
+}
+
+IDEMPOTENCY_KEY = {
+    "STORAGE": {
+        "CLASS": "idempotency_key.storage.CacheKeyStorage",
+        "CACHE_NAME": "default",
+    },
+}
+
+if REDIS_HOST:
+    IDEMPOTENCY_KEY["LOCK"] = {
+        "CLASS": "idempotency_key.locks.redis.MultiProcessRedisLock",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
+        "NAME": "marinheiros-idempotency-lock",
+        "TTL": 30,
+        "ENABLE": True,
+        "TIMEOUT": 1,
+    }
 
 
 # Password validation
