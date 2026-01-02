@@ -125,7 +125,7 @@ class Ticket(CommonUUIDModel, CommonTimedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["number", "is_outside"],
-                condition=Q(status=TicketStatus.OPEN),
+                condition=Q(status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED]),
                 name="unique_open_ticket_number",
             ),
         ]
