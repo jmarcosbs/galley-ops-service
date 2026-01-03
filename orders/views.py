@@ -329,8 +329,21 @@ class TicketSettlementView(APIView):
 
         with cast(AbstractContextManager, transaction.atomic()):
 
+            # Recarrega e tranca o ticket para evitar fechamentos concorrentes.
+            ticket = (
+                Ticket.objects.select_for_update()
+                .filter(
+                    pk=ticket.pk,
+                    status__in=[TicketStatus.OPEN, TicketStatus.PARTIALLY_CLOSED],
+                )
+                .first()
+            )
+            if not ticket:
+                raise ValidationError("Ticket não encontrado ou já fechado.")
+
             ticket_dish_orders = (
-                DishOrder.objects.filter(order__ticket=ticket)
+                DishOrder.objects.select_for_update()
+                .filter(order__ticket=ticket)
                 .select_related(
                     "order__ticket", "dish", "dish__category", "custom_dish"
                 )
@@ -369,6 +382,13 @@ class TicketSettlementView(APIView):
                 dish_order = dish_orders_by_uuid.get(item["dish_order_uuid"])
                 if dish_order is None:
                     raise ValidationError("Este item não pertence ao ticket informado.")
+
+                if Decimal(str(item["dish_order_quantity"])) > Decimal(
+                    str(dish_order.quantity)
+                ):
+                    raise ValidationError(
+                        "A quantidade informada é maior que o saldo do item do pedido."
+                    )
 
                 apply_half_increase = (
                     has_half_pair
