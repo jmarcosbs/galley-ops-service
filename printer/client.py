@@ -2,6 +2,7 @@ import os
 import requests
 from printer.types import (
     PrinterBillInputType,
+    PrinterDashboardSummaryInputType,
     PrinterOrderInputType,
     PrinterSuccessResponseType,
     PrinterErrorResponseType,
@@ -52,3 +53,8 @@ class PrinterClient:
         self, bill_payload: PrinterBillInputType
     ) -> PrinterSuccessResponseType | PrinterErrorResponseType:
         return self._post("/print-bill", bill_payload)
+
+    def print_dashboard_summary(
+        self, summary_payload: PrinterDashboardSummaryInputType
+    ) -> PrinterSuccessResponseType | PrinterErrorResponseType:
+        return self._post("/print-dashboard-service-fee", summary_payload)

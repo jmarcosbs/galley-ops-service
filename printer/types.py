@@ -56,6 +56,14 @@ class PrinterErrorResponseType(TypedDict):
     detail: str
 
 
+class PrinterDashboardSummaryInputType(TypedDict):
+    start_date: str
+    end_date: str
+    total_additions: float
+    total_tables: int
+    printed_at: str
+
+
 class PrinterSuccessHealthResponseType(TypedDict):
     status: str
 
