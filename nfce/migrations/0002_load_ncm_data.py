@@ -40,11 +40,13 @@ def load_ncms(apps, schema_editor):
     with data_file.open(encoding="utf-8") as fp:
         reader = csv.DictReader(fp)
         for row in reader:
-            code = normalize_code(row.get("codigo_ncm") or "")
+            raw_code = normalize_code(row.get("codigo_ncm") or "")
             description = (row.get("descricao_ncm") or "").strip()
 
-            if not code or not description:
+            if not raw_code or not description:
                 continue
+
+            code = raw_code.zfill(8)
 
             defaults = {"description": description}
 
