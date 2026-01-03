@@ -4,22 +4,24 @@ from typing import Any
 
 from orders.models import Ticket, TicketSettlement, TicketStatus
 
-CANCELABLE_SETTLEMENT_LIMIT = 2
+CANCELABLE_SETTLEMENT_LIMIT: int | None = None
 
 
 def get_cancelable_settlement_uuids(
-    limit: int = CANCELABLE_SETTLEMENT_LIMIT,
+    limit: int | None = CANCELABLE_SETTLEMENT_LIMIT,
 ) -> set[str]:
     """
     Retorna os UUIDs dos fechamentos mais recentes que ainda podem ser cancelados.
     """
 
-    uuids = (
+    queryset = (
         TicketSettlement.objects.filter(canceled=False)
         .order_by("-created_at")
-        .values_list("uuid", flat=True)[:limit]
+        .values_list("uuid", flat=True)
     )
-    return {str(uuid) for uuid in uuids}
+    if limit is not None:
+        queryset = queryset[:limit]
+    return {str(uuid) for uuid in queryset}
 
 
 def _ticket_items(ticket: Ticket) -> list[dict[str, Any]]:

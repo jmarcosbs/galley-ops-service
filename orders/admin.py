@@ -1,9 +1,14 @@
 import functools
+
+from django import forms
 from django.contrib import admin, messages
 from lxml import etree
 from pynfe.utils.flags import NAMESPACE_NFE
 from admin_extra_buttons.decorators import button
 from admin_extra_buttons.mixins import ExtraButtonsMixin
+from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
+from django.urls import reverse
 
 from nfce.services import NFCeService
 
@@ -15,6 +20,7 @@ from .models import (
     TicketSettlement,
     TicketSettlementItem,
 )
+from .services import cancel_ticket_settlement
 
 
 class BaseTicketAreaFilter(admin.SimpleListFilter):
@@ -54,6 +60,19 @@ class TicketSettlementItemAreaFilter(BaseTicketAreaFilter):
 
 class BaseOrderAdmin(admin.ModelAdmin):
     readonly_fields = ("uuid", "created_at", "updated_at")
+
+
+class TicketSettlementCancelForm(forms.Form):
+    justification = forms.CharField(
+        label="Justificativa",
+        min_length=15,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Explique o motivo do cancelamento.",
+            }
+        ),
+    )
 
 
 class DishOrderSideDishInline(admin.TabularInline):
@@ -264,6 +283,48 @@ class TicketSettlementAdmin(ExtraButtonsMixin, BaseOrderAdmin):
             )
             return
         self._consult_and_store(request, [settlement])
+
+    @button(
+        change_form=True,
+        html_attrs={"class": "btn btn-danger"},
+        label="Cancelar NFC-e",
+    )
+    def cancel_nfce_button(self, request, pk):
+        settlement = self.get_object(request, pk)
+        if not settlement:
+            self.message_user(request, "Liquidação não encontrada.", messages.ERROR)
+            return HttpResponseRedirect(reverse("admin:orders_ticketsettlement_changelist"))
+
+        change_url = reverse("admin:orders_ticketsettlement_change", args=[settlement.pk])
+        if settlement.canceled:
+            self.message_user(request, "Esta liquidação já está cancelada.", messages.WARNING)
+            return HttpResponseRedirect(change_url)
+
+        form = TicketSettlementCancelForm(request.POST or None)
+        if request.method == "POST" and form.is_valid():
+            try:
+                cancel_ticket_settlement(settlement, form.cleaned_data["justification"])
+            except ValueError as exc:
+                self.message_user(request, str(exc), messages.ERROR)
+            else:
+                self.message_user(
+                    request, "NFC-e cancelada com sucesso.", messages.SUCCESS
+                )
+                return HttpResponseRedirect(change_url)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "original": settlement,
+            "title": "Cancelar NFC-e",
+            "form": form,
+            "original_url": change_url,
+        }
+        return TemplateResponse(
+            request,
+            "admin/orders/ticketsettlement/cancel_nfce.html",
+            context,
+        )
 
 
 @admin.register(TicketSettlementItem)
