@@ -1,14 +1,16 @@
 import os
+from datetime import date
 from urllib.parse import urlsplit, urlunsplit
-
+from decimal import Decimal
 from django.utils import timezone
 
 from printer.client import PrinterClient
 from printer.types import (
-    PrinterOrderInputType,
-    PrinterOrderDishData,
-    PrinterDishData,
     PrinterBillInputType,
+    PrinterDashboardSummaryInputType,
+    PrinterDishData,
+    PrinterOrderDishData,
+    PrinterOrderInputType,
 )
 from orders.models import Order, TicketSettlement
 
@@ -269,6 +271,26 @@ class PrintService:
             payload["total_taxes"] = str(settlement.total_taxes)
 
         response = self.client.print_bill(payload)
+        success = response.status_code == 202
+        return (success, response.status_code, response.text)
+
+    def print_dashboard_summary(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        total_additions: Decimal,
+        total_tables: int,
+    ) -> tuple[bool, int, str]:
+        payload: PrinterDashboardSummaryInputType = {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "total_additions": float(str(total_additions)),
+            "total_tables": total_tables,
+            "printed_at": self._format_datetime(timezone.now()),
+        }
+
+        response = self.client.print_dashboard_summary(payload)
         success = response.status_code == 202
         return (success, response.status_code, response.text)
 
