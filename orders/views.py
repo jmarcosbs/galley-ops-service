@@ -36,7 +36,7 @@ from orders.models import (
     TicketSettlementItem,
     TicketStatus,
 )
-from orders.services import broadcast_open_tables
+from orders.services import broadcast_open_tables, cancel_ticket_settlement
 from orders.types import (
     SerializedOrderDataType,
     SerializedSettlementDataType,
@@ -589,41 +589,9 @@ class TicketSettlementCancelView(APIView):
         settlement = cast(TicketSettlement, serializer.context.get("settlement"))
         justification = cast(str, serializer.validated_data["justification"])
 
-        with cast(AbstractContextManager, transaction.atomic()):
-            helper = OrderHelper()
-            try:
-                response = helper.cancel_nfce(settlement, justification)
-            except ValueError as exc:
-                raise ValidationError(str(exc))
-
-            if not response or not response.get("success"):
-                logger.error(
-                    "Falha ao cancelar NFC-e para fechamento %s, abortando cancelamento.",
-                    settlement.id,
-                )
-                raise ValidationError(
-                    "Falha ao cancelar NFC-e; fechamento não foi cancelado."
-                )
-
-            raw_response = (
-                response.get("raw_response") if isinstance(response, dict) else None
-            )
-            cancelation_xml = None
-            if raw_response:
-                if isinstance(raw_response, (bytes, bytearray)):
-                    cancelation_xml = raw_response.decode("utf-8", errors="ignore")
-                else:
-                    cancelation_xml = str(raw_response)
-
-            for item in settlement.items.select_related("dish_order"):
-                dish_order = item.dish_order
-                dish_order.quantity += item.quantity
-                dish_order.save(update_fields=["quantity", "updated_at"])
-
-            settlement.canceled = True
-            settlement.cancelation_xml = cancelation_xml
-            settlement.save(update_fields=["canceled", "cancelation_xml", "updated_at"])
-            settlement.ticket.refresh_status_from_orders()
-            transaction.on_commit(lambda: broadcast_open_tables())
+        try:
+            cancel_ticket_settlement(settlement, justification)
+        except ValueError as exc:
+            raise ValidationError(str(exc))
 
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block content %}
+  <div class="module">
+    <h1>{{ title }}</h1>
+    <p>Informe o motivo do cancelamento da NFC-e para <strong>{{ original }}</strong>.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="submit-row">
+        <input type="submit" value="Confirmar cancelamento" class="default">
+        <a href="{{ original_url }}" class="button cancel-link">Voltar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
