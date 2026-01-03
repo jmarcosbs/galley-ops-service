@@ -341,9 +341,14 @@ class TicketSettlementView(APIView):
             if not ticket:
                 raise ValidationError("Ticket não encontrado ou já fechado.")
 
+            ticket_dish_orders = DishOrder.objects.select_for_update().filter(
+                order__ticket=ticket
+            )
+            locked_dish_order_ids = list(
+                ticket_dish_orders.values_list("id", flat=True)
+            )
             ticket_dish_orders = (
-                DishOrder.objects.select_for_update()
-                .filter(order__ticket=ticket)
+                DishOrder.objects.filter(id__in=locked_dish_order_ids)
                 .select_related(
                     "order__ticket", "dish", "dish__category", "custom_dish"
                 )

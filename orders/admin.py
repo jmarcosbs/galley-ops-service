@@ -1,3 +1,4 @@
+import functools
 from django.contrib import admin, messages
 from lxml import etree
 from pynfe.utils.flags import NAMESPACE_NFE
@@ -173,6 +174,17 @@ class TicketSettlementAdmin(ExtraButtonsMixin, BaseOrderAdmin):
         "nfce_last_consult_payload",
     )
     actions = ("consult_nfce",)
+
+    def get_extra_urls(self):
+        urls = super().get_extra_urls()
+        # admin-extra-buttons builds partial callbacks without __name__, which some middleware expects.
+        for url in urls:
+            callback = getattr(url, "callback", None)
+            if isinstance(callback, functools.partial) and not hasattr(callback, "__name__"):
+                wrapped = getattr(callback.func, "func", None) or callback.func
+                if wrapped:
+                    functools.update_wrapper(callback, wrapped)
+        return urls
 
     @admin.display(description="Mesa")
     def ticket_label(self, obj):
