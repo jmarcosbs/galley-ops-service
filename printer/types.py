@@ -56,12 +56,20 @@ class PrinterErrorResponseType(TypedDict):
     detail: str
 
 
+class PrinterDashboardDailyEntry(TypedDict):
+    date: str | None
+    total_additions: float
+    total_tables: int
+
+
 class PrinterDashboardSummaryInputType(TypedDict):
     start_date: str
     end_date: str
     total_additions: float
     total_tables: int
     printed_at: str
+    daily_breakdown: NotRequired[list[PrinterDashboardDailyEntry]]
+    printed_by: NotRequired[str]
 
 
 class PrinterSuccessHealthResponseType(TypedDict):
