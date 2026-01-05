@@ -5,7 +5,7 @@ from decimal import Decimal
 import logging
 
 from django.db.models import Count, Sum
-from django.db.models.functions import Coalesce, TruncDate
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -34,6 +34,25 @@ class DashboardSummaryView(APIView):
         )
         summary = self._build_summary(start_date, end_date)
         return Response(summary, status=status.HTTP_200_OK)
+
+    def _resolve_printed_by(self, user) -> str:
+        if not user:
+            return ""
+
+        full_name = ""
+        get_full_name = getattr(user, "get_full_name", None)
+        if callable(get_full_name):
+            full_name = get_full_name() or ""
+        full_name = full_name.strip()
+
+        if full_name:
+            return full_name
+
+        username = getattr(user, "username", "") or ""
+        if username:
+            return str(username).strip()
+
+        return str(user)
 
     def _ensure_superuser(self, request: Request) -> None:
         if not request.user.is_superuser:
@@ -128,23 +147,35 @@ class DashboardSummaryView(APIView):
         )
 
     def _daily_breakdown(self, queryset):
-        daily_stats = (
-            queryset.annotate(day=TruncDate("created_at"))
-            .values("day")
-            .order_by("day")
-            .annotate(
-                total_additions=Coalesce(Sum("additions_value"), Decimal("0")),
-                tables_served=Count("id"),
+        breakdown: dict[date, dict[str, Decimal | int]] = {}
+        for settlement in queryset:
+            created_at = getattr(settlement, "created_at", None)
+            additions_value = getattr(settlement, "additions_value", None)
+            if not created_at:
+                continue
+            local_date = timezone.localtime(created_at).date()
+            data = breakdown.setdefault(
+                local_date, {"total_additions": Decimal("0"), "tables": 0}
             )
-        )
-        return [
-            {
-                "date": day_stats["day"].isoformat() if day_stats["day"] else None,
-                "total_additions": float(day_stats["total_additions"]),
-                "total_tables": int(day_stats["tables_served"]),
-            }
-            for day_stats in daily_stats
-        ]
+            data["total_additions"] += additions_value or Decimal("0")
+            data["tables"] += 1
+
+        tzinfo = timezone.get_current_timezone()
+        normalized = []
+        for day, values in sorted(breakdown.items()):
+            localized_day = datetime.combine(day, time.min)
+            if timezone.is_naive(localized_day):
+                localized_day = timezone.make_aware(localized_day, tzinfo)
+            else:
+                localized_day = localized_day.astimezone(tzinfo)
+            normalized.append(
+                {
+                    "date": localized_day.isoformat(),
+                    "total_additions": float(values["total_additions"]),
+                    "total_tables": int(values["tables"]),
+                }
+            )
+        return normalized
 
 
 class DashboardAdditionsPrintView(DashboardSummaryView):
@@ -163,6 +194,8 @@ class DashboardAdditionsPrintView(DashboardSummaryView):
         start_dt, end_dt = self._range_boundaries(start_date, end_date)
         settlements_qs = self._get_settlements_queryset(start_dt, end_dt)
         aggregates = self._aggregate_metrics(settlements_qs)
+        daily_breakdown = self._daily_breakdown(settlements_qs)
+        printed_by = self._resolve_printed_by(request.user)
 
         printer_service = PrintService()
         try:
@@ -172,6 +205,8 @@ class DashboardAdditionsPrintView(DashboardSummaryView):
                     end_date=end_date,
                     total_additions=aggregates["total_additions"],
                     total_tables=int(aggregates["tables_served"]),
+                    daily_breakdown=daily_breakdown,
+                    printed_by=printed_by,
                 )
             )
         except Exception as exc:  # pragma: no cover

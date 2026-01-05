@@ -7,6 +7,7 @@ from django.utils import timezone
 from printer.client import PrinterClient
 from printer.types import (
     PrinterBillInputType,
+    PrinterDashboardDailyEntry,
     PrinterDashboardSummaryInputType,
     PrinterDishData,
     PrinterOrderDishData,
@@ -281,7 +282,21 @@ class PrintService:
         end_date: date,
         total_additions: Decimal,
         total_tables: int,
+        daily_breakdown: list[dict[str, object]] | None = None,
+        printed_by: str | None = None,
     ) -> tuple[bool, int, str]:
+        normalized_breakdown: list[PrinterDashboardDailyEntry] = []
+        for entry in daily_breakdown or []:
+            if not isinstance(entry, dict):
+                continue
+            normalized_breakdown.append(
+                {
+                    "date": entry.get("date"),
+                    "total_additions": float(entry.get("total_additions") or 0),
+                    "total_tables": int(entry.get("total_tables") or 0),
+                }
+            )
+
         payload: PrinterDashboardSummaryInputType = {
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
@@ -289,6 +304,11 @@ class PrintService:
             "total_tables": total_tables,
             "printed_at": self._format_datetime(timezone.now()),
         }
+
+        if normalized_breakdown:
+            payload["daily_breakdown"] = normalized_breakdown
+        if printed_by:
+            payload["printed_by"] = printed_by
 
         response = self.client.print_dashboard_summary(payload)
         success = response.status_code == 202
