@@ -94,7 +94,7 @@ CATEGORY_DATA = [
                 "ncm": "16052900",
             },
             {
-                "name": "Camarão à Moda Marinheiro's",
+                "name": "Camarão da Casa",
                 "price": "217.00",
                 "description": "Camarões refogados com cebola, tomate, azeitonas e creme de leite, finalizados com salsinha fresca. Acompanhamentos: Arroz, fritas e salada.",
                 "ncm": "16052900",
@@ -237,7 +237,7 @@ CATEGORY_DATA = [
                 "ncm": "16041900",
             },
             {
-                "name": "Linguado à Moda Marinheiro's",
+                "name": "Linguado da Casa",
                 "price": "253.00",
                 "description": "Filé de linguado grelhado na chapa, servido com molho especial de cebola, tomate, azeitonas e creme de leite. Finalizado com salsinha fresca. Acompanhamentos: Arroz, fritas e salada.",
                 "ncm": "16041900",
@@ -274,7 +274,7 @@ CATEGORY_DATA = [
                 "ncm": "16041900",
             },
             {
-                "name": "Congrio Rosa à Moda Marinheiro's",
+                "name": "Congrio Rosa da Casa",
                 "price": "269.00",
                 "description": "Filé de Congrio Rosa grelhado na chapa, servido com molho especial de cebola, tomate, azeitonas e creme de leite. Finalizado com salsinha fresca. Acompanhamentos: Arroz, fritas e salada.",
                 "ncm": "16041900",
@@ -311,7 +311,7 @@ CATEGORY_DATA = [
                 "ncm": "16041900",
             },
             {
-                "name": "Peixe à Moda Marinheiro's",
+                "name": "Peixe da Casa",
                 "price": "169.00",
                 "description": "Filé de peixe grelhado na chapa, servido com um molho especial de cebola, tomate, azeitonas e creme de leite. Finalizado com salsinha fresca. Acompanhamentos: Arroz, fritas e salada.",
                 "ncm": "16041900",

@@ -146,14 +146,14 @@ DISH_TRANSLATIONS = [
     },
     {
         "category": "Camarao",
-        "dish": "Camarão à Moda Marinheiro's",
+        "dish": "Camarão da Casa",
         "translations": {
             "en-US": {
-                "name": "Marinheiro's-style shrimp",
+                "name": "House-style shrimp",
                 "description": "Shrimp sautéed with onions, tomatoes, olives and cream, finished with fresh parsley. Sides: rice, fries and salad.",
             },
             "es-ES": {
-                "name": "Camarones a la Marinheiro's",
+                "name": "Camarones de la casa",
                 "description": "Camarones salteados con cebolla, tomate, aceitunas y crema de leche, finalizados con perejil fresco. Acompañamientos: arroz, papas fritas y ensalada.",
             },
         },
@@ -398,14 +398,14 @@ DISH_TRANSLATIONS = [
     },
     {
         "category": "Linguado",
-        "dish": "Linguado à Moda Marinheiro's",
+        "dish": "Linguado da Casa",
         "translations": {
             "en-US": {
-                "name": "Marinheiro's-style flounder",
+                "name": "House-style flounder",
                 "description": "Grilled flounder served with a special sauce of onions, tomatoes, olives and cream, finished with fresh parsley. Sides: rice, fries and salad.",
             },
             "es-ES": {
-                "name": "Lenguado a la Marinheiro's",
+                "name": "Lenguado de la casa",
                 "description": "Lenguado a la plancha servido con una salsa especial de cebolla, tomate, aceitunas y crema de leche, finalizado con perejil fresco. Acompañamientos: arroz, papas fritas y ensalada.",
             },
         },
@@ -468,14 +468,14 @@ DISH_TRANSLATIONS = [
     },
     {
         "category": "Congrio Rosa",
-        "dish": "Congrio Rosa à Moda Marinheiro's",
+        "dish": "Congrio Rosa da Casa",
         "translations": {
             "en-US": {
-                "name": "Marinheiro's-style Congrio Rosa",
+                "name": "House-style Congrio Rosa",
                 "description": "Grilled pink conger served with a special sauce of onions, tomatoes, olives and cream, finished with fresh parsley. Sides: rice, fries and salad.",
             },
             "es-ES": {
-                "name": "Congrio Rosa a la Marinheiro's",
+                "name": "Congrio Rosa de la casa",
                 "description": "Congrio Rosa a la plancha servido con una salsa especial de cebolla, tomate, aceitunas y crema de leche, finalizado con perejil fresco. Acompañamientos: arroz, papas fritas y ensalada.",
             },
         },
@@ -538,14 +538,14 @@ DISH_TRANSLATIONS = [
     },
     {
         "category": "File de peixe",
-        "dish": "Peixe à Moda Marinheiro's",
+        "dish": "Peixe da Casa",
         "translations": {
             "en-US": {
-                "name": "Marinheiro's-style fish fillet",
+                "name": "House-style fish fillet",
                 "description": "Fish fillet grilled on the griddle served with a special sauce of onions, tomatoes, olives and cream, finished with fresh parsley. Sides: rice, fries and salad.",
             },
             "es-ES": {
-                "name": "Filete de pescado a la Marinheiro's",
+                "name": "Filete de pescado de la casa",
                 "description": "Filete de pescado a la plancha servido con una salsa especial de cebolla, tomate, aceitunas y crema de leche, finalizado con perejil fresco. Acompañamientos: arroz, papas fritas y ensalada.",
             },
         },
