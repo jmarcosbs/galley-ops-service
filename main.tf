@@ -25,9 +25,9 @@ variable "zone" {
 }
 
 variable "instance_name" {
-  description = "Nome daa VM já existente"
+  description = "Nome da VM já existente"
   type        = string
-  default     = "marinheiros"
+  default     = "galley-ops"
 }
 
 
@@ -40,7 +40,7 @@ provider "google" {
 # Usa apenas data sources para ler a infraestrutura atual
 # Assim o terraform não tenta recriar ou alterar a VM
 
-data "google_compute_instance" "marinheiros" {
+data "google_compute_instance" "galley_ops" {
   project = var.project_id
   zone    = var.zone
   name    = var.instance_name
@@ -48,5 +48,5 @@ data "google_compute_instance" "marinheiros" {
 
 output "instance_ip" {
   description = "IP público atual da VM"
-  value       = data.google_compute_instance.marinheiros.network_interface[0].access_config[0].nat_ip
+  value       = data.google_compute_instance.galley_ops.network_interface[0].access_config[0].nat_ip
 }

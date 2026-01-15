@@ -19,26 +19,46 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
-ALLOWED_HOSTS = [
-    "service.restaurantemarinheiros.com.br",
+def env_list(key: str, fallback: list[str]) -> list[str]:
+    raw_value = os.environ.get(key)
+    if not raw_value:
+        return fallback
+    parsed = [item.strip() for item in raw_value.split(",") if item.strip()]
+    return parsed or fallback
+
+
+SERVICE_DOMAIN = os.environ.get("SERVICE_DOMAIN", "service.example.galleyops.com")
+APP_DOMAIN = os.environ.get("APP_DOMAIN", "app.example.galleyops.com")
+PUBLIC_SITE_DOMAIN = os.environ.get("PUBLIC_SITE_DOMAIN", "example.galleyops.com")
+
+DEFAULT_ALLOWED_HOSTS = [
+    SERVICE_DOMAIN,
+    APP_DOMAIN,
+    PUBLIC_SITE_DOMAIN,
     "127.0.0.1",
     "localhost",
-    "34.95.254.32",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://service.restaurantemarinheiros.com.br",
-    "https://pedidos.restaurantemarinheiros.com.br",
-    "https://restaurantemarinheiros.com.br",
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
+
+DEFAULT_CSRF_TRUSTED_ORIGINS = [
+    f"https://{SERVICE_DOMAIN}",
+    f"https://{APP_DOMAIN}",
+    f"https://{PUBLIC_SITE_DOMAIN}",
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "https://restaurantemarinheiros.com.br",
-    "https://service.restaurantemarinheiros.com.br",
-    "https://pedidos.restaurantemarinheiros.com.br",
+CSRF_TRUSTED_ORIGINS = env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS", DEFAULT_CSRF_TRUSTED_ORIGINS
+)
+
+DEFAULT_CORS_ALLOWED_ORIGINS = DEFAULT_CSRF_TRUSTED_ORIGINS + [
     "http://localhost:3000",
     "http://localhost:4321",
 ]
+
+CORS_ALLOWED_ORIGINS = env_list(
+    "DJANGO_CORS_ALLOWED_ORIGINS", DEFAULT_CORS_ALLOWED_ORIGINS
+)
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "Idempotency-Key",
@@ -158,7 +178,7 @@ DATABASES = {
 
 default_cache_backend = {
     "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    "LOCATION": "marinheiros-default-cache",
+    "LOCATION": "galley-ops-default-cache",
 }
 
 if REDIS_HOST:
@@ -185,7 +205,7 @@ if REDIS_HOST:
     IDEMPOTENCY_KEY["LOCK"] = {
         "CLASS": "idempotency_key.locks.redis.MultiProcessRedisLock",
         "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
-        "NAME": "marinheiros-idempotency-lock",
+        "NAME": "galley-ops-idempotency-lock",
         "TTL": 30,
         "ENABLE": True,
         "TIMEOUT": 1,
